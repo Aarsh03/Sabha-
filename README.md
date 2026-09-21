@@ -101,12 +101,11 @@ For comprehensive architectural, engineering, security, and product deep-dives, 
 | 🗄️ [Database & State Architecture](docs/DATABASE.md) | Firestore ERD, collection schemas, quotas, and security rules |
 | 🛡️ [Security & Privacy Guide](docs/SECURITY.md) | DTLS-SRTP encryption, zero-knowledge recording & threat mitigations |
 | 🎙️ [Audio Engine & Speaker Detection](docs/AUDIO_ENGINE.md) | Web Audio API decibel analysis, RMS calculation & active speaker halos |
-| 👥 [User Personas](docs/USER_PERSONAS.md) | Target audience profiles (Educator, Startup CTO, Low-Bandwidth Guest) |
 | 🗺️ [User Journeys & Interaction Flows](docs/USER_JOURNEY.md) | Host and attendee interaction journeys and escalation flows |
-| 💰 [Business Model & Cloud Economics](docs/BUSINESS_MODEL.md) | Zero-cost baseline breakdown, SaaS pathways & breakeven analysis |
 | 🚀 [Investor & Community Pitch](docs/PITCH.md) | Vision, market opportunity, unfair advantages & key milestones |
 | ❓ [Frequently Asked Questions (FAQ)](docs/FAQ.md) | Setup assistance, audio/video troubleshooting & technical FAQs |
 | 📋 [Task Plan & Sprint Breakdown](docs/tasks.md) | Granular sprint-by-sprint implementation tracking |
+| 🐛 [Known Issues & Tech Debt](docs/KNOWN_ISSUES.md) | Log of bugs, dead code, and unresolved typing issues |
 | 📝 [Roadmap & Todo List](docs/todo.md) | Immediate action items and upcoming features |
 
 ---

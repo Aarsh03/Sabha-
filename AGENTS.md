@@ -98,3 +98,4 @@ interface SignalData {
 - **Codebase Tree Structure:** [`docs/tree_structure.md`](docs/tree_structure.md) (Use this map to understand what files to touch and what to leave alone!)
 - **Development Context:** [`docs/context.md`](docs/context.md)
 - **Roadmap & Tasks:** [`docs/tasks.md`](docs/tasks.md) & [`docs/todo.md`](docs/todo.md)
+- **Known Issues:** [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md)

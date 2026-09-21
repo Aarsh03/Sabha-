@@ -24,6 +24,7 @@ Sabha-
 ├── components/
 │   └── meeting/
 ├── docs/
+│   ├── KNOWN_ISSUES.md
 │   ├── tree_structure.md
 │   └── ...
 ├── lib/
@@ -112,10 +113,10 @@ Comprehensive project specifications, guides, and architectural documentation.
 
 - `API_SPEC.md` - Details REST routes and Firestore signaling payload contracts.
 - `AUDIO_ENGINE.md` - Documentation on the Web Audio API analysis and active speaker logic.
-- `BUSINESS_MODEL.md` - Zero-cost operation principles and scaling economics.
 - `context.md` - Current development context, state management, and edge cases.
 - `DATABASE.md` - Firebase Firestore ERD, rules, and collection schemas.
 - `FAQ.md` - Frequently asked setup and troubleshooting questions.
+- `KNOWN_ISSUES.md` - Central ledger of bugs, dead code, and technical debt.
 - `PITCH.md` - Vision and value proposition for communities and investors.
 - `PRD.md` - Product Requirements Document outlining Zoom parity features and user stories.
 - `product.md` - Master specification document summarizing the entire project.
@@ -125,7 +126,6 @@ Comprehensive project specifications, guides, and architectural documentation.
 - `todo.md` - Immediate action items and upcoming roadmap features.
 - `tree_structure.md` - This file.
 - `USER_JOURNEY.md` - Interaction flows for Hosts and Attendees.
-- `USER_PERSONAS.md` - Target audience profiles.
 
 ---
 
