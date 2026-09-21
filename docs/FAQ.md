@@ -30,7 +30,7 @@
 
 ### Q5: How do I set up Firebase credentials?
 **A:** You can either:
-1. Create a `.env.local` file with the keys specified in [`.env.example`](file:///d:/projects/Sabha-/.env.example).
+1. Create a `.env.local` file with the keys specified in [`.env.example`](../.env.example).
 2. Or click the **Firebase Settings** gear icon in the navigation bar and paste your Firebase Web App configuration directly into the in-app modal.
 
 ### Q6: Can attendees join without a Google account?

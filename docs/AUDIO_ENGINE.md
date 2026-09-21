@@ -6,7 +6,7 @@
 
 ## 1. Overview
 
-Sabha features an intelligent, client-side audio analysis engine implemented in [`lib/audio.ts`](file:///d:/projects/Sabha-/lib/audio.ts). It continuously samples microphone inputs and incoming peer audio streams to calculate real-time decibel energy, detect active speakers, and trigger visual speaker halos across the meeting room.
+Sabha features an intelligent, client-side audio analysis engine implemented in [`lib/audio.ts`](../lib/audio.ts). It continuously samples microphone inputs and incoming peer audio streams to calculate real-time decibel energy, detect active speakers, and trigger visual speaker halos across the meeting room.
 
 ---
 
@@ -59,7 +59,7 @@ To prevent flickering between speaker highlights during natural pauses in speech
 
 ## 4. Green Room Microphone Visualizer
 
-Inside [`GreenRoom.tsx`](file:///d:/projects/Sabha-/components/meeting/GreenRoom.tsx), the audio engine powers an interactive pre-meeting level meter:
+Inside [`GreenRoom.tsx`](../components/meeting/GreenRoom.tsx), the audio engine powers an interactive pre-meeting level meter:
 - An animation frame loop queries `getAudioLevel(analyserNode)`.
 - Returns an integer normalized between `0` and `100%`.
 - The green progress bar dynamically indicates voice sensitivity, allowing participants to adjust microphone distance and input volume before joining the call.

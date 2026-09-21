@@ -1,5 +1,5 @@
 # Sabha (सभा) — Master Prompt & AI Pair Programming Guide
-**File:** `prompt.md`  
+**File:** `docs/prompt.md`  
 **Status:** Active | **Audience:** AI Coding Assistants, LLM Agents & Core Developers  
 **Repository:** [Harshjsh02/Sabha-](https://github.com/Harshjsh02/Sabha-)  
 
@@ -46,7 +46,7 @@ When generating code, proposing changes, or debugging:
 ```
 
 ### 3.2 Signaling Payload Discipline
-All signaling messages exchanged over Firestore or `BroadcastChannel` must follow the `SignalData` contract ([`lib/types.ts`](file:///d:/projects/Sabha-/lib/types.ts)):
+All signaling messages exchanged over Firestore or `BroadcastChannel` must follow the `SignalData` contract ([`lib/types.ts`](../lib/types.ts)):
 ```typescript
 interface SignalData {
   from: string;
@@ -62,22 +62,22 @@ interface SignalData {
 ## 4. Key Workflows & Prompt Instructions
 
 ### Workflow 1: Adding a New In-Meeting Feature
-1. **Define Schema:** Check and update [`lib/types.ts`](file:///d:/projects/Sabha-/lib/types.ts) if state persistence or message transmission is needed.
-2. **Implement Firestore Service:** Add helper methods to [`lib/roomService.ts`](file:///d:/projects/Sabha-/lib/roomService.ts) using `addDoc` and `onSnapshot`.
-3. **Wire into MeetingRoom:** Expose handlers through [`MeetingRoom.tsx`](file:///d:/projects/Sabha-/components/meeting/MeetingRoom.tsx) and inject into [`MeetingControls.tsx`](file:///d:/projects/Sabha-/components/meeting/MeetingControls.tsx).
+1. **Define Schema:** Check and update [`lib/types.ts`](../lib/types.ts) if state persistence or message transmission is needed.
+2. **Implement Firestore Service:** Add helper methods to [`lib/roomService.ts`](../lib/roomService.ts) using `addDoc` and `onSnapshot`.
+3. **Wire into MeetingRoom:** Expose handlers through [`MeetingRoom.tsx`](../components/meeting/MeetingRoom.tsx) and inject into [`MeetingControls.tsx`](../components/meeting/MeetingControls.tsx).
 4. **Preserve Fallbacks:** Ensure the feature degrades gracefully if LiveKit or Firestore is offline.
 
 ### Workflow 2: Debugging Audio/Video Desync
-1. Inspect track lifecycle events in [`lib/livekitService.ts`](file:///d:/projects/Sabha-/lib/livekitService.ts) (`RoomEvent.TrackSubscribed`, `RoomEvent.TrackUnsubscribed`).
-2. Verify `peerConnections` state in [`lib/webrtc.ts`](file:///d:/projects/Sabha-/lib/webrtc.ts) for `iceConnectionState === 'connected'`.
+1. Inspect track lifecycle events in [`lib/livekitService.ts`](../lib/livekitService.ts) (`RoomEvent.TrackSubscribed`, `RoomEvent.TrackUnsubscribed`).
+2. Verify `peerConnections` state in [`lib/webrtc.ts`](../lib/webrtc.ts) for `iceConnectionState === 'connected'`.
 3. Check `lib/audio.ts` frequency sampling to verify the `AnalyserNode` threshold is not continuously saturating.
 
 ---
 
 ## 5. Reference Files Quick-Links
-- **Product Vision & Requirements:** [`docs/PRD.md`](file:///d:/projects/Sabha-/docs/PRD.md)
-- **Technical Architecture:** [`docs/SYSTEM_ARCHITECTURE.md`](file:///d:/projects/Sabha-/docs/SYSTEM_ARCHITECTURE.md)
-- **Signaling & API Reference:** [`docs/API_SPEC.md`](file:///d:/projects/Sabha-/docs/API_SPEC.md)
-- **Database & ERD:** [`docs/DATABASE.md`](file:///d:/projects/Sabha-/docs/DATABASE.md)
-- **Development Context:** [`context.md`](file:///d:/projects/Sabha-/context.md)
-- **Roadmap & Tasks:** [`tasks.md`](file:///d:/projects/Sabha-/tasks.md) & [`todo.md`](file:///d:/projects/Sabha-/todo.md)
+- **Product Vision & Requirements:** [`PRD.md`](PRD.md)
+- **Technical Architecture:** [`SYSTEM_ARCHITECTURE.md`](SYSTEM_ARCHITECTURE.md)
+- **Signaling & API Reference:** [`API_SPEC.md`](API_SPEC.md)
+- **Database & ERD:** [`DATABASE.md`](DATABASE.md)
+- **Development Context:** [`context.md`](context.md)
+- **Roadmap & Tasks:** [`tasks.md`](tasks.md) & [`todo.md`](todo.md)

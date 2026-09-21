@@ -1,5 +1,5 @@
 # Sabha (सभा) — Product Documentation
-**File:** `product.md`  
+**File:** `docs/product.md`  
 **Status:** Approved | **Version:** 1.0.0  
 **Repository:** [Harshjsh02/Sabha-](https://github.com/Harshjsh02/Sabha-)  
 
@@ -265,7 +265,7 @@ interface SignalData {
 
 ## 12. Audio Intelligence Engine
 
-Implemented in [`lib/audio.ts`](file:///d:/projects/Sabha-/lib/audio.ts):
+Implemented in [`lib/audio.ts`](../lib/audio.ts):
 - **Pipeline:** Creates an `AudioContext` connected to an `AnalyserNode` (`fftSize = 256`, `smoothingTimeConstant = 0.8`).
 - **RMS Energy Sampling:** Measures root-mean-square amplitude in 50ms intervals.
 - **Hysteresis Noise Gating:** Requires signal to exceed 28 dBFS for 100ms before triggering the speaker halo, maintaining illumination for 400ms after speech ends to prevent visual flickering.

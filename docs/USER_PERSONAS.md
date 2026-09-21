@@ -63,6 +63,6 @@
 
 | Persona | Priority Feature | Sabha Implementation |
 | :--- | :--- | :--- |
-| **Dr. Vikram (Educator)** | Whiteboard + Unlimited Time + Moderation | [`WhiteboardModal.tsx`](file:///d:/projects/Sabha-/components/meeting/WhiteboardModal.tsx) & [`HostControlModal.tsx`](file:///d:/projects/Sabha-/components/meeting/HostControlModal.tsx) |
-| **Aisha (Startup CTO)** | Free In-Browser Recording + Screen Share | [`MeetingControls.tsx`](file:///d:/projects/Sabha-/components/meeting/MeetingControls.tsx) (`MediaRecorder`) |
-| **Mateo (Guest Developer)** | Green Room Preview + Guest Auth | [`GreenRoom.tsx`](file:///d:/projects/Sabha-/components/meeting/GreenRoom.tsx) & [`authContext.tsx`](file:///d:/projects/Sabha-/lib/authContext.tsx) |
+| **Dr. Vikram (Educator)** | Whiteboard + Unlimited Time + Moderation | [`WhiteboardModal.tsx`](../components/meeting/WhiteboardModal.tsx) & [`HostControlModal.tsx`](../components/meeting/HostControlModal.tsx) |
+| **Aisha (Startup CTO)** | Free In-Browser Recording + Screen Share | [`MeetingControls.tsx`](../components/meeting/MeetingControls.tsx) (`MediaRecorder`) |
+| **Mateo (Guest Developer)** | Green Room Preview + Guest Auth | [`GreenRoom.tsx`](../components/meeting/GreenRoom.tsx) & [`authContext.tsx`](../lib/authContext.tsx) |

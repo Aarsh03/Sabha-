@@ -65,19 +65,19 @@ Sabha is architected around a **Dual-Tier Real-Time Topology** designed for maxi
 ## 2. Component Subsystems
 
 ### 2.1 Media Manager Selector & Hardware Handling
-At meeting initialization inside [`MeetingRoom.tsx`](file:///components/meeting/MeetingRoom.tsx):
-1. **Hardware Release in Lobby:** Prior to entering the room, [`GreenRoom.tsx`](file:///components/meeting/GreenRoom.tsx) explicitly terminates all preview media stream tracks (`stream.getTracks().forEach(t => t.stop())`). This immediately releases mobile Android (Camera2 / AudioRecord HAL) and desktop OS hardware handles, eliminating `NotReadableError: device in use` conflicts.
+At meeting initialization inside [`MeetingRoom.tsx`](../components/meeting/MeetingRoom.tsx):
+1. **Hardware Release in Lobby:** Prior to entering the room, [`GreenRoom.tsx`](../components/meeting/GreenRoom.tsx) explicitly terminates all preview media stream tracks (`stream.getTracks().forEach(t => t.stop())`). This immediately releases mobile Android (Camera2 / AudioRecord HAL) and desktop OS hardware handles, eliminating `NotReadableError: device in use` conflicts.
 2. The client requests a LiveKit token from `/api/livekit-token?room={roomId}&username={peerId}&isHost={isHost}`.
 3. **If LiveKit responds with valid JWT and WebSocket URL:**
    - Server-side and client-side sanitization strips accidental whitespace/tab characters (`\t`) from environment variables (`LIVEKIT_URL`).
-   - Instantiates [`LiveKitRoomManager`](file:///lib/livekitService.ts) with `adaptiveStream: false, dynacast: false` to ensure SFU never throttles custom `<video>` elements without element attachment observers.
+   - Instantiates [`LiveKitRoomManager`](../lib/livekitService.ts) with `adaptiveStream: false, dynacast: false` to ensure SFU never throttles custom `<video>` elements without element attachment observers.
    - Local webcam and microphone tracks are published via native `setCameraEnabled` and `setMicrophoneEnabled`.
    - In-call mute/unmute toggles execute cleanly via native room manager controls without hardware re-acquisition latency.
-   - Video elements in [`VideoTile.tsx`](file:///components/meeting/VideoTile.tsx) maintain `muted={true}` with dedicated background `<audio>` playback, bypassing strict mobile (Android Brave/iOS Safari) unmuted autoplay restrictions.
+   - Video elements in [`VideoTile.tsx`](../components/meeting/VideoTile.tsx) maintain `muted={true}` with dedicated background `<audio>` playback, bypassing strict mobile (Android Brave/iOS Safari) unmuted autoplay restrictions.
    - Incoming stream updates emit fresh `MediaStream` references (`new MediaStream(stream.getTracks())`) so React re-render cycles bind video feeds instantly.
    - Screen sharing tracks (`Track.Source.ScreenShare`) are segregated into dedicated streams (`onRemoteScreenStreamAdded` / `onRemoteScreenStreamRemoved`), preventing camera streams from colliding with presentations.
 4. **If LiveKit returns an error or is unconfigured:**
-   - Falls back gracefully to [`WebRTCManager`](file:///lib/webrtc.ts).
+   - Falls back gracefully to [`WebRTCManager`](../lib/webrtc.ts).
    - Initializes direct peer-to-peer `RTCPeerConnection` instances between all room participants.
    - Re-packages incoming audio and video tracks onto fresh `MediaStream` objects to trigger reliable rendering on track addition.
    - SDP offers/answers and ICE candidates are relayed through Firestore sub-collections or local `BroadcastChannel`.
@@ -121,7 +121,7 @@ sequenceDiagram
     Peer->>Peer: Disable local audio track & update UI
 ```
 
-### 2.4 Audio Analysis Engine ([`lib/audio.ts`](file:///lib/audio.ts))
+### 2.4 Audio Analysis Engine ([`lib/audio.ts`](../lib/audio.ts))
 Active speaker detection runs completely client-side to minimize processing overhead:
 - **Audio Context Creation:** Creates an `AudioContext` from the stream's audio tracks.
 - **FFT Analysis:** Uses an `AnalyserNode` with `fftSize = 256` and `smoothingTimeConstant = 0.8`.
@@ -130,9 +130,9 @@ Active speaker detection runs completely client-side to minimize processing over
 
 ### 2.5 Instantaneous Participant Disconnect & Presence Lifecycle
 Sabha enforces zero-delay departure detection across desktop, mobile app swipe-close, and background termination:
-1. **Unload & Pagehide Listeners:** [`MeetingRoom.tsx`](file:///components/meeting/MeetingRoom.tsx) attaches both `beforeunload` and mobile-standard `pagehide` listeners.
-2. **Asynchronous OS Beacon (`navigator.sendBeacon`):** On unload, the browser fires an asynchronous beacon to [`POST /api/room/leave`](file:///app/api/room/leave/route.ts). The server immediately deletes the participant document from `/rooms/{roomId}/participants/{peerId}` and calls `RoomServiceClient.removeParticipant` in LiveKit Cloud, removing ghost tiles in <100ms.
-3. **WebRTC PeerConnection Guard:** [`WebRTCManager`](file:///lib/webrtc.ts) monitors `pc.onconnectionstatechange`. If connection drops to `'disconnected'` for >2.5s or reaches `'failed'/'closed'`, `removeDeadPeer` immediately closes the connection, unmounts the remote tile, and purges the Firestore participant doc.
+1. **Unload & Pagehide Listeners:** [`MeetingRoom.tsx`](../components/meeting/MeetingRoom.tsx) attaches both `beforeunload` and mobile-standard `pagehide` listeners.
+2. **Asynchronous OS Beacon (`navigator.sendBeacon`):** On unload, the browser fires an asynchronous beacon to [`POST /api/room/leave`](../app/api/room/leave/route.ts). The server immediately deletes the participant document from `/rooms/{roomId}/participants/{peerId}` and calls `RoomServiceClient.removeParticipant` in LiveKit Cloud, removing ghost tiles in <100ms.
+3. **WebRTC PeerConnection Guard:** [`WebRTCManager`](../lib/webrtc.ts) monitors `pc.onconnectionstatechange`. If connection drops to `'disconnected'` for >2.5s or reaches `'failed'/'closed'`, `removeDeadPeer` immediately closes the connection, unmounts the remote tile, and purges the Firestore participant doc.
 4. **Presence Heartbeat & Automatic Pruning:** Active participants write `lastSeen: Date.now()` every 5 seconds. The Firestore listener prunes any peer record whose heartbeat is older than 15 seconds, handling sudden device battery loss or process crashes.
 
 ---
