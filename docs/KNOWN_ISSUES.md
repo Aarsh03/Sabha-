@@ -54,3 +54,22 @@ There are several leftover imports cluttering up files that should be cleaned:
 - **Rampant `any` Types:** 
   - There are currently 38 instances of `any` types being used across `lib/webrtc.ts`, `lib/types.ts`, `lib/audio.ts`, and various UI components. 
   - **Impact:** This severely breaks type safety and can hide runtime crashes. These need to be properly typed with interfaces and DTOs.
+
+---
+
+## 5. 🚨 Memory Leaks
+
+- **Uncleared Timers in `useEffect`:**
+  - **Location:** `components/meeting/WaitingRoomBanner.tsx` (Line 47)
+  - **Details:** A `setTimeout` is fired inside a `useEffect` to close the `AudioContext` after 500ms for a chime sound. However, there is no `return () => clearTimeout(...)` cleanup function. If the component unmounts rapidly, the timer will leak and execute against an unmounted state.
+
+---
+
+## 6. 🐢 Performance Bottlenecks & Missing Optimizations
+
+- **Missing `useCallback` Memoization in State Orchestrators:**
+  - **Location:** `components/meeting/MeetingRoom.tsx`
+  - **Details:** Massive handler functions (`handleToggleScreenShare`, `handleMuteParticipant`, etc.) are passed to heavy child components like `<VideoGrid>` and `<ChatPanel>` but are not wrapped in `useCallback`. This causes the entire heavy video DOM tree to re-render whenever trivial state changes occur (like a chat message arriving).
+- **Missing Component Memoization:**
+  - **Location:** `<VideoGrid>`, `<VideoTile>`, `<ChatPanel>`, `<MeetingControls>`
+  - **Details:** These heavy components are not wrapped in `React.memo()`. Combined with the missing `useCallback` in the parent, this leads to severe CPU spikes, layout thrashing, and battery drain during large calls.
