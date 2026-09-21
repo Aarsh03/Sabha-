@@ -43,6 +43,10 @@ When generating code, proposing changes, or debugging:
   - Prefer in-browser `MediaRecorder` recording directly to `.webm` over server-side video transcoding pipelines.
 - **Defensive State & Resource Cleanup:**
   - Every `MediaStreamTrack`, `AudioContext`, `BroadcastChannel`, and Firestore `onSnapshot` listener must have an explicit teardown mechanism in React `useEffect` cleanups to prevent audio leaks or ghost peer sessions.
+- **Maintain Documentation Integrity:**
+  - Whenever you add a new feature or modify existing architecture, you **MUST** update all relevant markdown files in the `docs/` folder to ensure the project's documentation remains perfectly in sync.
+- **Aggressive Code Cleanup:**
+  - Always remove dead code, unused files, unused imports, and deprecated dependencies immediately whenever making a change. Never leave commented-out "graveyard" code behind.
 
 ---
 
