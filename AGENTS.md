@@ -41,8 +41,9 @@ When generating code, proposing changes, or debugging:
 - **Client-Side Compute Over Cloud Compute:**
   - Prefer client-side Web Audio API analysis (`AnalyserNode`) over server-side audio processing.
   - Prefer in-browser `MediaRecorder` recording directly to `.webm` over server-side video transcoding pipelines.
-- **Defensive State & Resource Cleanup:**
+- **Strict Memory Leak Prevention:**
   - Every `MediaStreamTrack`, `AudioContext`, `BroadcastChannel`, and Firestore `onSnapshot` listener must have an explicit teardown mechanism in React `useEffect` cleanups to prevent audio leaks or ghost peer sessions.
+  - **Never** use `setTimeout` or `setInterval` inside a `useEffect` without explicitly returning a `clearTimeout` or `clearInterval` cleanup function.
 - **Maintain Documentation Integrity:**
   - Whenever you add a new feature or modify existing architecture, you **MUST** update all relevant markdown files in the `docs/` folder to ensure the project's documentation remains perfectly in sync.
 - **Aggressive Code Cleanup:**
