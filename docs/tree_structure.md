@@ -11,7 +11,7 @@ Configuration, tooling, and metadata for the project.
 
 - `.env.example` - Template for environment variables (Firebase, LiveKit).
 - `.gitignore` - Specifies intentionally untracked files that Git should ignore.
-- `AGENTS.md` - Auto-generated Next.js 16 file for AI agents (can be safely ignored).
+- `AGENTS.md` - Master AI Pair Programming instructions combined with Next.js 16 rules.
 - `eslint.config.mjs` - Configuration rules for ESLint to maintain code quality.
 - `next.config.ts` - Configuration file for Next.js 16 App Router.
 - `package.json` / `package-lock.json` - NPM dependencies and project metadata.
@@ -87,7 +87,6 @@ Comprehensive project specifications, guides, and architectural documentation.
 - `PITCH.md` - Vision and value proposition for communities and investors.
 - `PRD.md` - Product Requirements Document outlining Zoom parity features and user stories.
 - `product.md` - Master specification document summarizing the entire project.
-- `prompt.md` - Instructions and architectural guidelines for AI Pair Programming.
 - `SECURITY.md` - Threat models, DTLS-SRTP encryption, and Firestore security rules.
 - `SYSTEM_ARCHITECTURE.md` - Client-server boundaries, SFU vs. Mesh topologies.
 - `tasks.md` - Granular sprint-by-sprint development task tracking.
