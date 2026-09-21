@@ -5,6 +5,38 @@ This document outlines the complete directory and file structure of the **Sabha*
 
 ---
 
+## Overview
+
+```text
+Sabha-
+├── .env.example
+├── AGENTS.md
+├── next.config.ts
+├── package.json
+├── README.md
+├── app/
+│   ├── api/
+│   │   ├── auth/
+│   │   ├── livekit-token/
+│   │   └── room/
+│   └── room/
+│       └── [roomId]/
+├── components/
+│   └── meeting/
+├── docs/
+│   ├── tree_structure.md
+│   └── ...
+├── lib/
+│   ├── audio.ts
+│   ├── firebase.ts
+│   ├── livekitService.ts
+│   ├── roomService.ts
+│   └── webrtc.ts
+└── public/
+```
+
+---
+
 ## Root Directory
 
 Configuration, tooling, and metadata for the project.

@@ -91,5 +91,6 @@ interface SignalData {
 - **Technical Architecture:** [`docs/SYSTEM_ARCHITECTURE.md`](docs/SYSTEM_ARCHITECTURE.md)
 - **Signaling & API Reference:** [`docs/API_SPEC.md`](docs/API_SPEC.md)
 - **Database & ERD:** [`docs/DATABASE.md`](docs/DATABASE.md)
+- **Codebase Tree Structure:** [`docs/tree_structure.md`](docs/tree_structure.md) (Use this map to understand what files to touch and what to leave alone!)
 - **Development Context:** [`docs/context.md`](docs/context.md)
 - **Roadmap & Tasks:** [`docs/tasks.md`](docs/tasks.md) & [`docs/todo.md`](docs/todo.md)
