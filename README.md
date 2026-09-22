@@ -92,22 +92,20 @@ For comprehensive architectural, engineering, security, and product deep-dives, 
 
 | Document | Purpose & Scope |
 | :--- | :--- |
-| 📖 [Product Master Specification (product.md)](product.md) | Comprehensive 21-section end-to-end product & system architecture |
-| 🧠 [Development Context (context.md)](context.md) | Current phase, tech stack, state management & edge case handling |
-| 🤖 [AI Pair Programming Guide (prompt.md)](prompt.md) | System prompt, core principles, glassmorphic styling & workflows |
+| 📖 [Product Master Specification (docs/product.md)](docs/product.md) | Comprehensive 21-section end-to-end product & system architecture |
+| 🧠 [Development Context (docs/context.md)](docs/context.md) | Current phase, tech stack, state management & edge case handling |
+| 🤖 [AI Pair Programming Guide (AGENTS.md)](AGENTS.md) | System prompt, core principles, glassmorphic styling & workflows |
 | 📋 [Product Requirements Document (PRD)](docs/PRD.md) | Problem validation, Zoom parity requirements, feature sets & NFRs |
 | 🏗️ [System Architecture](docs/SYSTEM_ARCHITECTURE.md) | High-level topology, LiveKit SFU + Mesh hybrid engine & sequence diagrams |
 | 🔌 [API & Signaling Specification](docs/API_SPEC.md) | REST routes, LiveKit JWT token API, Firestore signaling payloads |
 | 🗄️ [Database & State Architecture](docs/DATABASE.md) | Firestore ERD, collection schemas, quotas, and security rules |
 | 🛡️ [Security & Privacy Guide](docs/SECURITY.md) | DTLS-SRTP encryption, zero-knowledge recording & threat mitigations |
 | 🎙️ [Audio Engine & Speaker Detection](docs/AUDIO_ENGINE.md) | Web Audio API decibel analysis, RMS calculation & active speaker halos |
-| 👥 [User Personas](docs/USER_PERSONAS.md) | Target audience profiles (Educator, Startup CTO, Low-Bandwidth Guest) |
 | 🗺️ [User Journeys & Interaction Flows](docs/USER_JOURNEY.md) | Host and attendee interaction journeys and escalation flows |
-| 💰 [Business Model & Cloud Economics](docs/BUSINESS_MODEL.md) | Zero-cost baseline breakdown, SaaS pathways & breakeven analysis |
 | 🚀 [Investor & Community Pitch](docs/PITCH.md) | Vision, market opportunity, unfair advantages & key milestones |
-| ❓ [Frequently Asked Questions (FAQ)](docs/FAQ.md) | Setup assistance, audio/video troubleshooting & technical FAQs |
-| 📋 [Task Plan & Sprint Breakdown](tasks.md) | Granular sprint-by-sprint implementation tracking |
-| 📝 [Roadmap & Todo List](todo.md) | Immediate action items and upcoming features |
+| 📋 [Task Plan & Sprint Breakdown](docs/tasks.md) | Granular sprint-by-sprint implementation tracking |
+| 🐛 [Known Issues & Tech Debt](docs/KNOWN_ISSUES.md) | Log of bugs, dead code, and unresolved typing issues |
+| 📝 [Roadmap & Todo List](docs/todo.md) | Immediate action items and upcoming features |
 
 ---
 

@@ -1,5 +1,5 @@
 # Sabha (सभा) — Immediate & Long-Term Roadmap (Todo)
-**Document:** `todo.md`  
+**Document:** `docs/todo.md`  
 **Status:** Active | **Updated:** 2026-09-04  
 
 ---

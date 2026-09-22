@@ -1,5 +1,5 @@
 # Implementation Task Breakdown & Sprint Plan — Sabha (सभा)
-**Document:** `tasks.md`  
+**Document:** `docs/tasks.md`  
 **Status:** In Progress / Maintenance | **Version:** 1.0.0  
 
 ---

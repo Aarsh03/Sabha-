@@ -10,7 +10,7 @@
 Generates a signed JSON Web Token (JWT) granting access to join a specified LiveKit meeting room with participant permissions.
 
 - **Route:** `GET /api/livekit-token`
-- **Location:** [`app/api/livekit-token/route.ts`](file:///d:/projects/Sabha-/app/api/livekit-token/route.ts)
+- **Location:** [`app/api/livekit-token/route.ts`](../app/api/livekit-token/route.ts)
 - **Auth:** Public client endpoint; authenticated via server-side `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET`.
 
 #### Query Parameters
@@ -47,7 +47,7 @@ Generates a signed JSON Web Token (JWT) granting access to join a specified Live
 Logs participant login telemetry, public IP address, user agent, and timestamp to Firestore for compliance and forensic auditing.
 
 - **Route:** `POST /api/auth/record-login`
-- **Location:** [`app/api/auth/record-login/route.ts`](file:///app/api/auth/record-login/route.ts)
+- **Location:** [`app/api/auth/record-login/route.ts`](../app/api/auth/record-login/route.ts)
 - **Auth:** Client authenticated via Google OAuth UID
 
 #### Request Body
@@ -65,7 +65,7 @@ Logs participant login telemetry, public IP address, user agent, and timestamp t
 Instantaneous participant teardown endpoint invoked during app close, browser termination, navigation, or participant kick actions via `navigator.sendBeacon` and fetch. Purges participant documents from Firestore and immediately terminates the LiveKit session.
 
 - **Route:** `POST /api/room/leave`
-- **Location:** [`app/api/room/leave/route.ts`](file:///app/api/room/leave/route.ts)
+- **Location:** [`app/api/room/leave/route.ts`](../app/api/room/leave/route.ts)
 - **Transport:** Standard JSON fetch or `navigator.sendBeacon(Blob)`
 
 #### Request Body
@@ -92,7 +92,7 @@ When falling back to P2P Mesh or synchronizing room state, Sabha uses Firestore 
 
 ### 2.1 Room State Document
 - **Path:** `/rooms/{roomId}`
-- **Interface:** `RoomSettings` ([`lib/types.ts`](file:///lib/types.ts))
+- **Interface:** `RoomSettings` ([`lib/types.ts`](../lib/types.ts))
 
 ```typescript
 {
@@ -112,7 +112,7 @@ When falling back to P2P Mesh or synchronizing room state, Sabha uses Firestore 
 
 ### 2.2 Participant Presence Document
 - **Path:** `/rooms/{roomId}/participants/{peerId}`
-- **Interface:** `Participant` ([`lib/types.ts`](file:///d:/projects/Sabha-/lib/types.ts))
+- **Interface:** `Participant` ([`lib/types.ts`](../lib/types.ts))
 
 ```typescript
 {
@@ -132,7 +132,7 @@ When falling back to P2P Mesh or synchronizing room state, Sabha uses Firestore 
 
 ### 2.3 Chat Messages Collection
 - **Path:** `/rooms/{roomId}/messages/{messageId}`
-- **Interface:** `ChatMessage` ([`lib/types.ts`](file:///d:/projects/Sabha-/lib/types.ts))
+- **Interface:** `ChatMessage` ([`lib/types.ts`](../lib/types.ts))
 
 ```typescript
 {
@@ -149,7 +149,7 @@ When falling back to P2P Mesh or synchronizing room state, Sabha uses Firestore 
 
 ### 2.4 Live Reaction Collection
 - **Path:** `/rooms/{roomId}/reactions/{reactionId}`
-- **Interface:** `ReactionItem` ([`lib/types.ts`](file:///d:/projects/Sabha-/lib/types.ts))
+- **Interface:** `ReactionItem` ([`lib/types.ts`](../lib/types.ts))
 
 ```typescript
 {
@@ -163,7 +163,7 @@ When falling back to P2P Mesh or synchronizing room state, Sabha uses Firestore 
 
 ### 2.5 WebRTC Signaling Protocol
 - **Path:** `/rooms/{roomId}/signals/{signalId}`
-- **Interface:** `SignalData` ([`lib/types.ts`](file:///d:/projects/Sabha-/lib/types.ts))
+- **Interface:** `SignalData` ([`lib/types.ts`](../lib/types.ts))
 
 Used for SDP offer/answer exchanges and host moderator signals when operating in Mesh mode:
 

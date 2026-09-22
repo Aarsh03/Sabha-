@@ -1,5 +1,5 @@
 # Sabha (सभा) — Development Context
-**File:** `context.md`  
+**File:** `docs/context.md`  
 **Status:** Active | **Phase:** Production Release & Architecture Documentation  
 **Repository:** [Harshjsh02/Sabha-](https://github.com/Harshjsh02/Sabha-)  
 
