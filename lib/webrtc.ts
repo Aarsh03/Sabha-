@@ -14,7 +14,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
-import { Participant, SignalData } from './types';
+import { Participant, SignalData, TranscriptItem } from './types';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -50,6 +50,7 @@ export class WebRTCManager {
   public onMuteRequested: () => void = () => {};
   public onKicked: (reason?: string) => void = () => {};
   public onWhiteboardReceived: (event: any) => void = () => {};
+  public onTranscriptReceived: (item: TranscriptItem) => void = () => {};
 
   // Cleanups
   private unsubParticipants: (() => void) | null = null;
@@ -429,6 +430,11 @@ export class WebRTCManager {
       return;
     }
 
+    if ((signal.type as any) === 'transcript-chunk') {
+      this.onTranscriptReceived(signal.payload);
+      return;
+    }
+
     if ((signal.type as any) === 'participant-update') {
       const updates = signal.payload as Partial<Participant> & { targetPeerId?: string };
       const targetId = updates.targetPeerId || fromPeerId;
@@ -584,6 +590,16 @@ export class WebRTCManager {
       to: 'broadcast',
       type: 'whiteboard' as any,
       payload,
+      timestamp: Date.now(),
+    });
+  }
+
+  public async sendTranscriptItem(item: TranscriptItem) {
+    await this.sendSignal({
+      from: this.localParticipant.id,
+      to: 'broadcast',
+      type: 'transcript-chunk' as any,
+      payload: item,
       timestamp: Date.now(),
     });
   }

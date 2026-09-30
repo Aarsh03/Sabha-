@@ -74,6 +74,7 @@ export function RoomClient({ roomId, isHostParam }: RoomClientProps) {
       id: peerId,
       uid: userUid,
       name: name,
+      email: user?.email || null,
       photoURL: user?.photoURL || null,
       isHost: isHost,
       isCoHost: false,

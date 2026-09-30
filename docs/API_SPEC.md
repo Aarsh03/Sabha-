@@ -244,3 +244,53 @@ When operating in LiveKit SFU mode, real-time collaboration messages (such as Wh
   }
 }
 ```
+
+---
+
+## 5. Meeting Summarization & Email Delivery API
+
+### `POST /api/meeting/summarize-and-email`
+
+Generates an executive AI summary using Google Gemini (`gemini-3-flash-preview` / `gemini-2.5-flash-lite`) from speaker-tagged meeting transcripts and dispatches emails via Zoho Mail SMTP (`smtp.zoho.in:465`).
+
+- **Hosts & Co-hosts:** Receive the formatted AI Executive Summary + Action Items with the complete verbatim transcript attached as `sabha-[roomId]-transcript.txt`.
+- **Participants/Attendees:** Receive the clean AI Executive Summary & Action Items notes directly in their email.
+
+#### Request Body
+```json
+{
+  "roomId": "string",
+  "title": "string (optional)",
+  "durationMinutes": 15,
+  "participants": [
+    {
+      "id": "string",
+      "name": "string",
+      "email": "user@example.com",
+      "isHost": true,
+      "isCoHost": false
+    }
+  ],
+  "transcript": [
+    {
+      "senderName": "Harsh",
+      "text": "Welcome everyone to Sabha.",
+      "timestamp": 1727700000000
+    }
+  ]
+}
+```
+
+#### Response (`200 OK`)
+```json
+{
+  "success": true,
+  "summary": "# 📋 Sabha Meeting Summary\n...",
+  "emailsDispatched": {
+    "hosts": 1,
+    "attendees": 4
+  },
+  "totalHostRecipients": 1,
+  "totalAttendeeRecipients": 4
+}
+```

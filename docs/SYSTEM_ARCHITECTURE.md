@@ -160,6 +160,20 @@ MeetingControls.tsx (Toggle Record)
   -> Auto-triggers <a> download as 'sabha-meeting-{date}.webm'
 ```
 
+#### C. Live Speech Recognition & AI Summarization / Email
+```
+User Speaks -> Web Speech API (LiveTranscriptionService)
+  -> Real-time local & peer subtitle display (Captions Overlay)
+  -> SignalData ('transcript-chunk') broadcasts to peers via LiveKit / WebRTC
+  -> MeetingRoom accumulates verbatim speaker-tagged dialogue
+  -> Host ends meeting ("End Sabha for All")
+  -> POST /api/meeting/summarize-and-email (keepalive: true)
+  -> Google Gemini (gemini-3-flash-preview) generates Executive Summary & Action Items
+  -> Zoho Mail SMTP (smtp.zoho.in:465) dispatches:
+     - Hosts/Co-hosts: Full HTML summary + sabha-[roomId]-transcript.txt attachment
+     - Attendees: Full HTML summary notes
+```
+
 ### 3.2 Security Matrix
 | Boundary | Mechanism | Implementation |
 | :--- | :--- | :--- |

@@ -23,6 +23,8 @@
 - [x] Resolve Android Brave / mobile hardware locks in `GreenRoom.tsx` and eliminate disruptive in-call `alert()` dialogs.
 - [x] True Firestore database host verification (`room.hostId === user.uid`) replacing insecure query params.
 - [x] Implement Whiteboard "Close Board" header action with peer synchronization.
+- [x] **Browser-Native Live Transcription & Captions:** Web Speech API (`webkitSpeechRecognition`) continuous real-time speaker-tagged speech-to-text with CC overlay toggle.
+- [x] **AI Meeting Summarizer & Email Dispatch:** Google Gemini (`gemini-3-flash-preview`) automatic structured executive summary generation and Zoho Mail SMTP (`smtp.zoho.in:465`) dispatch: full `.txt` verbatim transcript + summary to Hosts/Co-hosts, and notes to attendees.
 
 ---
 
@@ -33,7 +35,6 @@
 ---
 
 ## 🚀 Upcoming Features (Next Release)
-- [ ] **AI Meeting Summarizer:** Integrate Gemini 2.5/Flash API to auto-generate bulleted summaries from audio recordings.
 - [ ] **Virtual Backgrounds & Blur:** Integrate `@mediapipe/selfie_segmentation` for client-side canvas blurring with zero cloud GPU requirement.
 - [ ] **Breakout Rooms:** Allow the host to partition participants into secondary rooms and summon them back with a timer.
 - [ ] **Noise Suppression:** Add Web Audio high-pass / low-pass filter chain to dampen background fan and keyboard noise.

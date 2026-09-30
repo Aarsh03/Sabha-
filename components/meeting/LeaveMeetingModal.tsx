@@ -63,9 +63,13 @@ export function LeaveMeetingModal({
               </div>
             </div>
 
-            <p className="text-xs text-slate-300 mb-5 leading-relaxed">
+            <p className="text-xs text-slate-300 mb-4 leading-relaxed">
               If you leave without ending the meeting, other participants can remain and continue talking. Or you can end the Sabha for everyone.
             </p>
+
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-[11px] mb-4">
+              <span>✨ Sabha AI will automatically generate and email meeting summary notes to attendees, and complete verbatim transcripts to hosts.</span>
+            </div>
 
             <div className="space-y-2.5">
               {/* End Sabha for All */}

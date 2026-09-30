@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Participant, RoomSettings, ChatMessage, ReactionItem, WaitingParticipant } from '@/lib/types';
+import { Participant, RoomSettings, ChatMessage, ReactionItem, WaitingParticipant, TranscriptItem } from '@/lib/types';
 import { WebRTCManager } from '@/lib/webrtc';
 import { LiveKitRoomManager } from '@/lib/livekitService';
+import { LiveTranscriptionService } from '@/lib/transcriptionService';
 import {
   getOrCreateRoom,
   updateRoomSettings,
@@ -113,6 +114,32 @@ export function MeetingRoom({
   const [duration, setDuration] = useState(0);
   const [copiedLink, setCopiedLink] = useState(false);
   const [isLiveKitSFU, setIsLiveKitSFU] = useState(false);
+
+  // Live Speech-to-Text Transcription & Captions
+  const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
+  const transcriptRef = useRef<TranscriptItem[]>([]);
+  const [isCaptionsOn, setIsCaptionsOn] = useState<boolean>(true);
+  const [latestLiveCaption, setLatestLiveCaption] = useState<{ senderName: string; text: string } | null>(null);
+  const captionFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const transcriptionServiceRef = useRef<LiveTranscriptionService | null>(null);
+
+  const handleUpdateLiveCaption = (senderName: string, text: string) => {
+    setLatestLiveCaption({ senderName, text });
+    if (captionFadeTimerRef.current) {
+      clearTimeout(captionFadeTimerRef.current);
+    }
+    captionFadeTimerRef.current = setTimeout(() => {
+      setLatestLiveCaption(null);
+    }, 4500);
+  };
+
+  const handleAppendTranscriptItem = (item: TranscriptItem) => {
+    handleUpdateLiveCaption(item.senderName, item.text);
+    if (item.isFinal) {
+      transcriptRef.current.push(item);
+      setTranscript((prev) => [...prev, item]);
+    }
+  };
 
   // Zoom-style View Switcher & Top-Bar State
   const [viewMode, setViewMode] = useState<'gallery' | 'speaker' | 'multi-speaker'>('gallery');
@@ -250,6 +277,8 @@ export function MeetingRoom({
             lkManager.onDataReceived = (payload) => {
               if (payload?.type === 'whiteboard') {
                 setIncomingDrawEvent(payload.event);
+              } else if (payload?.type === 'transcript-chunk' && payload.item) {
+                handleAppendTranscriptItem(payload.item);
               }
             };
 
@@ -385,6 +414,10 @@ export function MeetingRoom({
           setIncomingDrawEvent(event);
         };
 
+        manager.onTranscriptReceived = (item) => {
+          handleAppendTranscriptItem(item);
+        };
+
         await manager.joinRoom();
       }
     }
@@ -465,6 +498,63 @@ export function MeetingRoom({
       setUnreadChatCount(0);
     }
   }, [isChatOpen]);
+
+  // Web Speech API Live Transcription
+  useEffect(() => {
+    const service = new LiveTranscriptionService();
+    transcriptionServiceRef.current = service;
+
+    service.setCallbacks((text, isFinal) => {
+      const item: TranscriptItem = {
+        id: `${localParticipant.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        senderId: localParticipant.id,
+        senderName: localParticipant.name || 'You',
+        text,
+        timestamp: Date.now(),
+        isFinal,
+      };
+
+      handleUpdateLiveCaption(localParticipant.name || 'You', text);
+
+      if (isFinal) {
+        transcriptRef.current.push(item);
+        setTranscript((prev) => [...prev, item]);
+
+        // Broadcast to peers via active media engine
+        if (isLiveKitSFU && liveKitManagerRef.current) {
+          liveKitManagerRef.current.sendData({
+            type: 'transcript-chunk',
+            item,
+          });
+        } else if (rtcManagerRef.current) {
+          rtcManagerRef.current.sendTranscriptItem(item);
+        }
+      }
+    });
+
+    if (localParticipant.audioEnabled) {
+      service.start();
+    }
+
+    return () => {
+      service.destroy();
+      transcriptionServiceRef.current = null;
+      if (captionFadeTimerRef.current) {
+        clearTimeout(captionFadeTimerRef.current);
+      }
+    };
+  }, [localParticipant.id, localParticipant.name, isLiveKitSFU]);
+
+  // Synchronize transcription with microphone mute/unmute state
+  useEffect(() => {
+    if (transcriptionServiceRef.current) {
+      if (localParticipant.audioEnabled) {
+        transcriptionServiceRef.current.start();
+      } else {
+        transcriptionServiceRef.current.stop();
+      }
+    }
+  }, [localParticipant.audioEnabled]);
 
   // Toggle Audio
   const handleToggleAudio = async () => {
@@ -1040,6 +1130,33 @@ export function MeetingRoom({
       }
     } catch {}
 
+    // 1b. Dispatch AI Meeting Summarization & Zoho Email in background
+    try {
+      const allParticipants = [localParticipant, ...remoteParticipants];
+      const summaryPayload = JSON.stringify({
+        roomId,
+        title: roomSettings.title,
+        durationMinutes: Math.max(1, Math.ceil(duration / 60)),
+        participants: allParticipants.map((p) => ({
+          id: p.id,
+          name: p.name,
+          email: p.email || null,
+          isHost: p.isHost,
+          isCoHost: p.isCoHost,
+        })),
+        transcript: transcriptRef.current,
+      });
+
+      fetch('/api/meeting/summarize-and-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: summaryPayload,
+        keepalive: true,
+      }).catch((e) => console.warn('Summarization email dispatch error:', e));
+    } catch (err) {
+      console.warn('Failed to dispatch meeting summarization:', err);
+    }
+
     // 2. Broadcast kick/end command to all peers
     try {
       await rtcManagerRef.current?.sendKickCommand('broadcast', 'meeting-ended');
@@ -1376,6 +1493,14 @@ export function MeetingRoom({
           onToggleLock={handleToggleLock}
           onOpenInvite={() => setIsShareModalOpen(true)}
         />
+
+        {/* Live Closed Captions / Subtitles Overlay */}
+        {isCaptionsOn && latestLiveCaption && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 max-w-2xl px-5 py-2.5 rounded-2xl bg-slate-950/85 backdrop-blur-md border border-slate-700/80 text-center shadow-2xl pointer-events-none z-20 animate-in fade-in zoom-in-95 duration-150">
+            <span className="text-amber-400 font-bold text-xs mr-2">{latestLiveCaption.senderName}:</span>
+            <span className="text-slate-100 text-sm font-medium tracking-wide">{latestLiveCaption.text}</span>
+          </div>
+        )}
       </div>
 
       {/* Zoom-Style Bottom Toolbar */}
@@ -1390,6 +1515,8 @@ export function MeetingRoom({
         participantCount={remoteParticipants.length + 1}
         waitingCount={waitingList.length}
         unreadChatCount={unreadChatCount}
+        isCaptionsOn={isCaptionsOn}
+        onToggleCaptions={() => setIsCaptionsOn((prev) => !prev)}
         onToggleAudio={handleToggleAudio}
         onToggleVideo={handleToggleVideo}
         onToggleScreenShare={handleToggleScreenShare}

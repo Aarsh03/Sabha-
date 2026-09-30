@@ -10,6 +10,7 @@ export interface Participant {
   id: string; // peerId or uid
   uid: string;
   name: string;
+  email?: string | null;
   photoURL?: string | null;
   isHost: boolean;
   isCoHost?: boolean;
@@ -19,6 +20,15 @@ export interface Participant {
   isHandRaised: boolean;
   isMutedByHost: boolean;
   joinedAt: number;
+}
+
+export interface TranscriptItem {
+  id: string;
+  senderId: string;
+  senderName: string;
+  text: string;
+  timestamp: number;
+  isFinal: boolean;
 }
 
 export interface WaitingParticipant {
@@ -70,7 +80,7 @@ export interface ReactionItem {
 export interface SignalData {
   from: string;
   to: string;
-  type: 'offer' | 'answer' | 'candidate' | 'mute-command' | 'kick-command';
+  type: 'offer' | 'answer' | 'candidate' | 'mute-command' | 'kick-command' | 'whiteboard' | 'participant-update' | 'transcript-chunk';
   payload: any;
   timestamp: number;
 }
