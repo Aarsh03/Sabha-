@@ -305,7 +305,7 @@ export function subscribeToWaitingRoom(
   callback: (waitingList: WaitingParticipant[]) => void
 ): () => void {
   let broadcastChannel: BroadcastChannel | null = null;
-  let waitingMap = new Map<string, WaitingParticipant>();
+  const waitingMap = new Map<string, WaitingParticipant>();
 
   const emit = () => {
     const list = Array.from(waitingMap.values()).filter((p) => p.status === 'waiting');

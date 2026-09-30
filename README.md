@@ -8,14 +8,19 @@
 ## 🚀 Features (Zoom Parity)
 
 - 🔒 **Mandatory Google Authentication & Verified Profiles**: Secure login enforcing Google verified identities with immutable display names and login IP auditing (`/api/auth/record-login`).
-- 👑 **Host (सभापति) Admin Controls**:
+- 👑 **Host (सभापति) & Co-Host (सह-सभापति) Controls**:
   - **Database Host Verification**: Authenticated via Firestore (`room.hostId === user.uid`), eliminating insecure URL spoofing.
-  - **Mute All**: Instantly mute every participant's microphone.
-  - **Individual Mute**: Mute any noisy participant.
-  - **Kick Participant**: Remove disruptive users from the room.
+  - **Co-Host Delegation**: Promote trusted attendees to co-hosts with full moderation privileges.
+  - **Mute All & Individual Mute**: Instantly silence noisy microphones.
+  - **Kick Participant**: Remove disruptive users from the assembly with immediate broadcast signals.
   - **Lock Sabha**: Lock room to prevent unauthorized new entries.
   - **Require Cameras**: Mandate all participants keep their webcams active.
   - **Security Permissions**: Toggle participant rights to screen share, chat, or unmute.
+- 🚪 **Waiting Room & Knocking System**: Attendees wait in a stylized lobby until admitted; hosts/co-hosts receive real-time knocking banners with 1-click `[Admit]`, `[Deny]`, and `[Admit all]`.
+- 🎙️ **Live Speech Transcription & Closed Captions (CC)**: Zero-cost browser Web Speech API continuous transcription with real-time speaker attribution and toggleable floating subtitles overlay.
+- 🤖 **AI Meeting Summaries (Google Gemini)**: Automatic structured executive overview, key discussion points, and action items generated via Gemini 3 Flash when the meeting concludes.
+- ✉️ **Automated Zoho Email Delivery**: Host and co-hosts receive the executive notes with the complete verbatim transcript attached as `sabha-[roomId]-transcript.txt`; all attendees receive the summary notes directly in their inbox.
+- 📐 **Zoom-Style Multi-View Layout**: Seamless switching between Gallery View, Active Speaker View, and Multi-Speaker View with top-bar dropdown and fullscreen controls.
 - 💻 **Spotlight Presentation Stage (Screen Sharing)**: Dedicated presentation stage rendering high-fidelity screen shares with `object-contain`, presenter header badge, participant filmstrip, and 1-click "Stop Sharing".
 - 💬 **In-Meeting Chat**: Public messages to everyone or direct 1-on-1 private messages with live unread indicators.
 - 🎨 **Interactive Sabha Whiteboard**: Brainstorm together with multi-color drawing canvas, stroke controls, 1-click PNG export, and close board action.
@@ -46,7 +51,9 @@ Sabha uses an intelligent hybrid engine that combines **LiveKit Cloud SFU** with
 - **Styling**: Tailwind CSS v4 + Lucide Icons + Glassmorphism HUD
 - **Real-Time Signaling**: Firebase Firestore + LiveKit Cloud SFU (or automatic local BroadcastChannel fallback)
 - **Authentication & Auditing**: Firebase Google Authentication + Serverless IP Audit Log
-- **Media Engine**: Native WebRTC (`RTCPeerConnection`, `getUserMedia`, `getDisplayMedia`, `Web Audio API`)
+- **AI Intelligence**: Google Gemini API (`gemini-3-flash-preview` via `@google/genai`)
+- **Email Delivery**: Zoho Mail SMTP (`nodemailer`) with attachments
+- **Media Engine**: Hybrid LiveKit Cloud SFU + Native WebRTC (`RTCPeerConnection`, `getUserMedia`, `getDisplayMedia`, `Web Audio API`)
 - **Hosting**: Vercel (Hobby Tier: $0.00 / month forever)
 - **Database**: Firebase (Spark Tier: $0.00 / month forever)
 
@@ -61,22 +68,32 @@ cd Sabha-
 npm install
 ```
 
-### 2. Configure Firebase (Free Spark Plan)
-Create a `.env.local` file or configure via the in-app **Firebase Settings** modal:
+### 2. Configure Environment Variables
+Create a `.env.local` file (or copy `.env.example`):
 ```env
+# Firebase Free Spark Configuration
 NEXT_PUBLIC_FIREBASE_API_KEY=AIzaSy...
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=your-app.firebaseapp.com
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your-app
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=your-app.appspot.com
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=1234567890
 NEXT_PUBLIC_FIREBASE_APP_ID=1:1234567890:web:...
-```
 
-> **Steps in Firebase Console:**
-> 1. Visit [Firebase Console](https://console.firebase.google.com) and create a free project.
-> 2. Enable **Authentication** > Sign-in method > **Google**.
-> 3. Create a **Firestore Database** in test mode.
-> 4. Go to **Project Settings** > General > Add Web App (`</>`) and copy your keys.
+# LiveKit Cloud SFU (Free 50GB Tier)
+LIVEKIT_URL=wss://your-project.livekit.cloud
+NEXT_PUBLIC_LIVEKIT_URL=wss://your-project.livekit.cloud
+LIVEKIT_API_KEY=your_livekit_api_key
+LIVEKIT_API_SECRET=your_livekit_api_secret
+
+# Google Gemini AI Summarization
+GEMINI_API_KEY=your_gemini_api_key
+
+# Zoho Mail SMTP Settings
+ZOHO_MAIL_USER=your_email@domain.com
+ZOHO_MAIL_PASS="your_password"
+ZOHO_MAIL_HOST=smtp.zoho.in
+ZOHO_MAIL_PORT=465
+```
 
 ### 3. Run Development Server
 ```bash
@@ -99,6 +116,7 @@ For comprehensive architectural, engineering, security, and product deep-dives, 
 | 🏗️ [System Architecture](docs/SYSTEM_ARCHITECTURE.md) | High-level topology, LiveKit SFU + Mesh hybrid engine & sequence diagrams |
 | 🔌 [API & Signaling Specification](docs/API_SPEC.md) | REST routes, LiveKit JWT token API, Firestore signaling payloads |
 | 🗄️ [Database & State Architecture](docs/DATABASE.md) | Firestore ERD, collection schemas, quotas, and security rules |
+| 🌲 [Codebase Tree Structure (docs/tree_structure.md)](docs/tree_structure.md) | Granular breakdown of files and directories across the project |
 | 🛡️ [Security & Privacy Guide](docs/SECURITY.md) | DTLS-SRTP encryption, zero-knowledge recording & threat mitigations |
 | 🎙️ [Audio Engine & Speaker Detection](docs/AUDIO_ENGINE.md) | Web Audio API decibel analysis, RMS calculation & active speaker halos |
 | 🗺️ [User Journeys & Interaction Flows](docs/USER_JOURNEY.md) | Host and attendee interaction journeys and escalation flows |

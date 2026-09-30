@@ -12,7 +12,6 @@ import {
   Sparkles,
   PhoneOff,
   Loader2,
-  Users,
 } from 'lucide-react';
 import { Participant, RoomSettings } from '@/lib/types';
 import {

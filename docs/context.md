@@ -15,6 +15,9 @@
   - **Real-Time Signaling:** Firebase Firestore (or automatic local BroadcastChannel fallback)
   - **Authentication:** Firebase Google Authentication & Anonymous Guest Mode
   - **Media Engine:** Hybrid Architecture — LiveKit Cloud SFU (primary for 50–100+ seats) + Native WebRTC Mesh (fallback for 4–10 seats)
+  - **Live Speech Transcription:** Web Speech API (`webkitSpeechRecognition`) continuous real-time speaker transcription & closed captions
+  - **AI Meeting Summaries:** Google Gemini (`gemini-3-flash-preview`) automated structured executive notes & action items
+  - **Automated Email Delivery:** Zoho Mail SMTP (`smtp.zoho.in:465`) sending transcripts (.txt) to hosts/co-hosts and summary notes to attendees
   - **In-Browser Recording:** Native `MediaRecorder` API ($0 cloud storage/transcoding cost)
   - **Audio Intelligence:** Web Audio API (`AudioContext`, `AnalyserNode`) for active speaker detection halos
 
@@ -75,8 +78,12 @@
 | **LiveKit Room Manager**| `lib/livekitService.ts` | Handles SFU connections, screen share track subscriptions, dynacast, and non-blocking `mute()`/`unmute()` toggles. |
 | **WebRTC Mesh Manager** | `lib/webrtc.ts` | Native peer connection lifecycle, polite-peer SDP offer/answer collision resolution, ICE candidate exchange. |
 | **Audio Analyser** | `lib/audio.ts` | FFT frequency analysis, RMS decibel calculation, active speaker detection with glowing emerald halo. |
+| **Live Speech Transcription** | `lib/transcriptionService.ts` | Web Speech API speech-to-text service, real-time speaker attribution & continuous caption streaming. |
+| **AI Summarizer & Email** | `/api/meeting/summarize-and-email` | Gemini 3 Flash generation of meeting notes + Zoho Mail SMTP dispatch with .txt transcript attachment. |
 | **Interactive Whiteboard**| `components/meeting/WhiteboardModal.tsx`| HTML5 canvas whiteboard with stroke colors, widths, eraser, PNG export, and close action. |
-| **Host Moderation** | `components/meeting/HostControlModal.tsx`| Mute All, Kick disruptive peers, Lock Sabha, require cameras (`requireVideo`), and toggle permission rights. |
+| **Host Moderation** | `components/meeting/HostControlModal.tsx`| Mute All, Kick disruptive peers, Lock Sabha, require cameras (`requireVideo`), co-host assignment, and permission toggles. |
+| **Waiting Room** | `WaitingRoom.tsx`, `WaitingRoomBanner.tsx` | Attendee knocking lobby with real-time host admission/denial controls. |
+| **Leave & End Modal** | `components/meeting/LeaveMeetingModal.tsx` | Zoom-style options dialog for "End Sabha for All" (triggers AI notes) vs "Leave Meeting". |
 | **Share Modal** | `components/meeting/ShareMeetingModal.tsx`| Generates clean `/room/[roomId]` invite links, Web Share API, WhatsApp sharing. |
 | **In-Meeting Chat** | `ChatPanel.tsx` | Broadcast messages & 1-on-1 direct private messages with unread counters. |
 | **Auth Provider & Audit** | `lib/authContext.tsx`, `/api/auth/record-login` | Firebase Auth listener, Google sign-in, login IP and user agent auditing. |
@@ -90,7 +97,7 @@
   - **Emerald Green (`#10B981`):** Active speaker audio glow ring, connected status indicators.
   - **Violet / Indigo (`#6366F1` / `#8B5CF6`):** Primary actions, host badges, brand highlights.
   - **Rose / Red (`#EF4444`):** Recording pulse dot, microphone muted badges, end call action.
-  - **Amber / Yellow (`#F59E0B`):** Hand raise queue indicator, warning notices.
+  - **Amber / Yellow (`#F59E0B`):** Hand raise queue indicator, warning notices, live captions highlight.
 - **Iconography:** Lucide Icons (`lucide-react`).
 - **Typography:** Modern sans-serif system stack optimized for cross-platform legibility.
 
@@ -112,13 +119,23 @@ LIVEKIT_URL=wss://your-project.livekit.cloud
 NEXT_PUBLIC_LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your_livekit_api_key
 LIVEKIT_API_SECRET=your_livekit_api_secret
+
+# Google Gemini AI Meeting Summarization
+GEMINI_API_KEY=your_gemini_api_key
+
+# Zoho Mail SMTP Settings
+ZOHO_MAIL_USER=sabha.cdh@ydixstore.com
+ZOHO_MAIL_PASS="your_zoho_password"
+ZOHO_MAIL_HOST=smtp.zoho.in
+ZOHO_MAIL_PORT=465
 ```
 
 ---
 
 ## 7. Known Edge Cases & Architectural Handling
 
-1. **Host Departure:** If the host leaves, the meeting continues for remaining participants, but administrative permissions are locked unless passed to a co-host.
-2. **Permission Denial in Green Room:** When webcam or microphone access is blocked by browser policy, the Green Room displays instructional recovery prompts and allows entering muted.
-3. **Bandwidth Degrades (Mesh Mode):** High CPU/network congestion triggers automatic video degradation to preserve pristine stereo audio.
-4. **Recording Tab Switching:** The `MediaRecorder` captures system display or window audio; user can minimize the browser window while recording remains active.
+1. **Host Departure vs End for All:** If the host leaves, the meeting continues for remaining participants; if the host chooses "End Sabha for All", all peers receive an immediate termination signal, and the AI meeting summary & verbatim transcripts are dispatched in background via `fetch` with `keepalive: true`.
+2. **Co-Host Privileges:** Primary host can delegate co-hosts who share moderation capabilities (mute all, kick participants, admit waiting peers).
+3. **Permission Denial in Green Room:** When webcam or microphone access is blocked by browser policy, the Green Room displays instructional recovery prompts and allows entering muted.
+4. **Bandwidth Degrades (Mesh Mode):** High CPU/network congestion triggers automatic video degradation to preserve pristine stereo audio.
+5. **Recording Tab Switching:** The `MediaRecorder` captures system display or window audio; user can minimize the browser window while recording remains active.

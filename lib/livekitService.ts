@@ -5,8 +5,6 @@ import {
   RemoteTrackPublication,
   RemoteTrack,
   Track,
-  LocalTrackPublication,
-  LocalParticipant,
   DisconnectReason,
 } from 'livekit-client';
 import { Participant } from './types';

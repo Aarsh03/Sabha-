@@ -75,7 +75,6 @@ Next.js App Router directory. Handles routing, pages, and serverless API endpoin
 ## `/components`
 React components for the application interface and meeting features.
 
-- `FirebaseSetupModal.tsx` - Modal to help users configure Firebase without manually editing `.env`.
 - `Navbar.tsx` - Global navigation bar.
 - **/meeting** - Core interactive meeting UI components.
   - `ChatPanel.tsx` - In-meeting chat sidebar supporting public and 1-on-1 private messaging.

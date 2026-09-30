@@ -152,19 +152,27 @@ Sabha balances scale and simplicity with its dual-topology design:
    ▼
 [4. Active Collaborative Assembly]
    │  Responsive Video Grid (1 to 12+ participants)
+   │  Multi-View Switcher (Gallery, Active Speaker, Multi-Speaker)
+   │  Real-time Speech Recognition & Closed Captions (CC) subtitles
    │  Active speaker detection with glowing emerald halos
    │  In-meeting chat (Public & Private 1-on-1)
    │  Interactive Whiteboard with multi-color drawing & PNG export
-   │  HD Screen sharing with system audio
+   │  HD Screen sharing with system audio & participant filmstrip
    │  Floating emoji reactions & celebratory confetti
-   │  Host security controls (Mute All, Kick, Lock Room)
+   │  Waiting Room admission and Knocking notifications
+   │  Host & Co-host security controls (Mute All, Kick, Lock Room)
    ▼
 [5. Local Meeting Recording]
-   │  `MediaRecorder` captures window/stream to local memory
+   │  `MediaRecorder` captures window/stream to local memory with multi-channel audio mixing
    │  On stop: Generates `.webm` blob and triggers instant browser download
    ▼
-[6. Session Termination]
-   │  Host clicks "End Meeting" or attendee leaves
+[6. Session Termination & AI Intelligence]
+   │  Host selects "End Sabha for All" (or leaves)
+   │  Background keepalive triggers POST /api/meeting/summarize-and-email
+   │  Google Gemini 3 Flash analyzes verbatim transcript & generates executive notes
+   │  Zoho Mail SMTP delivers:
+   │    - Hosts/Co-hosts: Executive notes + attached sabha-[roomId]-transcript.txt
+   │    - Attendees: Executive notes & action items
    │  Tracks unmounted, peer connections closed, Firestore presence doc deleted
 ```
 
@@ -175,13 +183,19 @@ Sabha balances scale and simplicity with its dual-topology design:
 | Feature | Component | Description |
 | :--- | :--- | :--- |
 | **Green Room Lobby** | `GreenRoom.tsx` | Pre-meeting camera mirror and live microphone sensitivity bar; cleanly releases preview tracks before room mount to prevent Android/desktop hardware locks. |
-| **Adaptive Video Grid** | `VideoGrid.tsx` | Dynamically calculated CSS grid resizing from 1 to 12+ participants with automatic active-speaker layout. |
+| **Waiting Room & Knocking** | `WaitingRoom.tsx`, `WaitingRoomBanner.tsx` | Secure attendee lobby where guests wait for host/co-host admission; real-time notifications with 1-click Admit/Deny actions. |
+| **Adaptive Video Grid & Multi-View** | `VideoGrid.tsx` | Dynamically calculated CSS grid resizing from 1 to 12+ participants with instant switching between Gallery, Active Speaker, and Multi-Speaker modes. |
 | **Spotlight Presentation Stage** | `VideoGrid.tsx` | Dedicated presentation stage for active screen shares; utilizes `object-contain` for maximum code/slide crispness, presenter badge, full-screen toggle, and local "Stop Sharing" button. |
 | **Active Speaker Halos** | `VideoTile.tsx` | Visual emerald aura (`ring-2 ring-emerald-500`) around active talkers via Web Audio FFT energy sampling. |
+| **Live Speech Transcription** | `lib/transcriptionService.ts` | Zero-cost browser-native Web Speech API (`webkitSpeechRecognition`) continuous real-time speaker transcription. |
+| **Live Closed Captions (CC)** | `MeetingRoom.tsx`, `MeetingControls.tsx` | Floating glassmorphic subtitle overlay displaying speaker attribution with bottom control bar CC toggle. |
+| **AI Meeting Summaries** | `/api/meeting/summarize-and-email` | Google Gemini 3 Flash automated structured executive summary, discussion points, and action items generated upon meeting end. |
+| **Automated Zoho Mail Delivery** | `/api/meeting/summarize-and-email` | Automatic SMTP dispatch sending full verbatim `.txt` transcript attachments + notes to hosts/co-hosts, and notes to attendees. |
+| **Co-Host Delegation** | `MeetingRoom.tsx`, `ParticipantsPanel.tsx` | Primary host can designate co-hosts (सह-सभापति) who inherit moderation capabilities (Mute, Kick, Admit). |
 | **LiveKit SFU Screen Sharing** | `MeetingControls.tsx` | High-definition screen capture with dedicated LiveKit track routing (`onRemoteScreenStreamAdded` / `onRemoteScreenStreamRemoved`). |
 | **Interactive Whiteboard**| `WhiteboardModal.tsx` | Multi-color drawing canvas with brush size controls, eraser, PNG export, and explicit "Close Board" header action. |
 | **In-Meeting Chat** | `ChatPanel.tsx` | Broadcast channel + targeted 1-on-1 direct messaging with unread badges. |
-| **In-Browser Recording** | `MeetingControls.tsx` | Client-side `MediaRecorder` capture producing downloadable WebM files ($0 cloud storage/transcoding cost). |
+| **In-Browser Recording** | `MeetingControls.tsx` | Client-side `MediaRecorder` capture with multi-channel audio mixing producing downloadable WebM files ($0 cloud cost). |
 | **Emoji Reactions** | `ReactionsOverlay.tsx` | Floating emoji animations (👍, ❤️, 👏, 😂, 🎉, 🚀) with canvas-confetti bursts. |
 | **Hand Raise Queue** | `ParticipantsPanel.tsx` | Visual badge and queue tracking for orderly participant questions. |
 | **Clean Invite Sharing** | `ShareMeetingModal.tsx`| Share clean invite URLs (`/room/[roomId]`) via Web Share API, WhatsApp, or 1-click animated copy button. |
@@ -192,8 +206,10 @@ Sabha balances scale and simplicity with its dual-topology design:
 ## 9. Host Administration & Room Security
 
 The room creator is designated as **Host (सभापति)** via authentic Firestore database verification (`room.hostId === user.uid`), fully deprecating insecure client-side `?host=true` URL manipulation:
+- **Co-Host Assignment:** Host can designate one or more Co-Hosts (सह-सभापति) to share administrative responsibilities.
+- **Waiting Room Management:** Admit or deny knocking attendees individually or simultaneously via `[Admit all]`.
 - **Global Mute All:** Broadcasts `mute-command` signal, instantly muting all attendee audio tracks.
-- **Individual Mute:** Allows host to mute any specific noisy participant.
+- **Individual Mute:** Allows host or co-host to mute any specific noisy participant.
 - **Kick Participant:** Emits `kick-command` forcing the target client to disconnect and redirect.
 - **Lock Sabha:** Sets `isLocked: true`, rejecting any subsequent join attempts.
 - **Require Cameras On:** Host can enforce `requireVideo: true`, requiring all attendees to keep their webcam active.
@@ -324,6 +340,15 @@ LIVEKIT_URL=wss://your-project.livekit.cloud
 NEXT_PUBLIC_LIVEKIT_URL=wss://your-project.livekit.cloud
 LIVEKIT_API_KEY=your_key
 LIVEKIT_API_SECRET=your_secret
+
+# Google Gemini AI Meeting Summarization
+GEMINI_API_KEY=your_gemini_api_key
+
+# Zoho Mail SMTP Settings
+ZOHO_MAIL_USER=sabha.cdh@ydixstore.com
+ZOHO_MAIL_PASS="your_zoho_password"
+ZOHO_MAIL_HOST=smtp.zoho.in
+ZOHO_MAIL_PORT=465
 ```
 
 ---
@@ -341,7 +366,7 @@ npm run dev
 ### Vercel Deployment (60 Seconds)
 1. Push code to your GitHub account.
 2. Link the repository in the Vercel Dashboard.
-3. Populate `NEXT_PUBLIC_FIREBASE_*` and `LIVEKIT_*` environment variables.
+3. Populate `NEXT_PUBLIC_FIREBASE_*`, `LIVEKIT_*`, `GEMINI_API_KEY`, and `ZOHO_MAIL_*` environment variables.
 4. Click **Deploy**.
 
 ---

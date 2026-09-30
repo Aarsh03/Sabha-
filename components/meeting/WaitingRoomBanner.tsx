@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useRef } from 'react';
-import { Users, Check, X, Bell } from 'lucide-react';
+import { Users, Check, X } from 'lucide-react';
 import { WaitingParticipant } from '@/lib/types';
 
 interface WaitingRoomBannerProps {
@@ -23,11 +23,15 @@ export function WaitingRoomBanner({
 
   // Play a gentle synth chime when someone enters the waiting room
   useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    let audioCtx: AudioContext | null = null;
+
     if (waitingList.length > prevCountRef.current) {
       try {
         const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
         if (AudioContextClass) {
           const ctx = new AudioContextClass();
+          audioCtx = ctx;
           const osc = ctx.createOscillator();
           const gain = ctx.createGain();
 
@@ -44,11 +48,20 @@ export function WaitingRoomBanner({
 
           osc.start(ctx.currentTime);
           osc.stop(ctx.currentTime + 0.4);
-          setTimeout(() => ctx.close().catch(() => {}), 500);
+          timer = setTimeout(() => {
+            ctx.close().catch(() => {});
+          }, 500);
         }
       } catch {}
     }
     prevCountRef.current = waitingList.length;
+
+    return () => {
+      if (timer) clearTimeout(timer);
+      if (audioCtx && audioCtx.state !== 'closed') {
+        audioCtx.close().catch(() => {});
+      }
+    };
   }, [waitingList.length]);
 
   if (waitingList.length === 0) return null;

@@ -90,6 +90,7 @@ Modern video collaboration tools (Zoom, Microsoft Teams, Google Meet, Webex) dom
 - **FR-202 (Adaptive Video Grid):** Automatically restructure grid tiles (1, 2, 3–4, 5–6, 7–12 participants) with CSS Grid `minmax` ensuring equal visual weight.
 - **FR-203 (Active Speaker Detection):** Audio level sampling at 50ms intervals via `AudioContext` and `AnalyserNode`. Apply emerald glowing ring (`ring-2 ring-emerald-500`) around active speaker's video tile.
 - **FR-204 (HD Screen Sharing & Spotlight Presentation Stage):** Screen stream capture via `navigator.mediaDevices.getDisplayMedia` or LiveKit SFU. Transitions layout into a dedicated `ScreenPresentationStage` featuring CSS `object-contain` for maximum slide/code crispness, presenter identification badge, participant filmstrip, and local "Stop Sharing" button.
+- **FR-205 (Zoom Multi-View Layouts):** Instant switching between Gallery View, Active Speaker View, and Multi-Speaker View with top-bar controls and fullscreen toggle.
 
 ### 4.3 Host (सभापति) Administration & Security
 - **FR-301 (Mute All):** Host broadcasts global mute command; remote participants' audio tracks are muted instantly.
@@ -101,13 +102,18 @@ Modern video collaboration tools (Zoom, Microsoft Teams, Google Meet, Webex) dom
 - **FR-307 (Clean Invite Sharing):** All meeting links use clean `/room/[roomId]` paths. Integrated `ShareMeetingModal` supports native Web Share API, WhatsApp sharing, and animated 1-click clipboard copying.
 - **FR-308 (Host-Enforced Video):** Host can require all participants to turn on webcams (`requireVideo`), preventing video blackout during critical assemblies.
 - **FR-309 (Participant Login Auditing):** `/api/auth/record-login` endpoint records participant IP addresses, user agent strings, and login timestamps to Firestore `/users/{uid}/loginHistory`.
+- **FR-310 (Co-Host Delegation):** Host can designate one or more co-hosts who inherit moderation privileges (Mute, Kick, Admit).
+- **FR-311 (Waiting Room & Knocking System):** Attendees are queued in a waiting lobby until admitted by host/co-host; real-time knocking banners notify hosts with 1-click `[Admit]`, `[Deny]`, and `[Admit all]`.
 
 ### 4.4 Collaboration & Productivity
-- **FR-401 (Zero-Cost Meeting Recording):** Uses `MediaRecorder` API to capture mixed streams or screen display into WebM blobs. Downloadable locally upon stopping recording with zero cloud storage costs.
-- **FR-402 (Interactive Whiteboard):** Modal whiteboard featuring 8 preset colors, stroke size slider, eraser mode, clear canvas, and 1-click PNG image export.
+- **FR-401 (Zero-Cost Meeting Recording):** Uses `MediaRecorder` API with multi-channel audio mixing to capture mixed streams into WebM blobs. Downloadable locally upon stopping recording with zero cloud storage costs.
+- **FR-402 (Interactive Whiteboard):** Modal whiteboard featuring preset colors, stroke size slider, eraser mode, clear canvas, and 1-click PNG image export.
 - **FR-403 (In-Meeting Chat):** Real-time text chat with tabbed/dropdown recipient selector (Everyone vs. Specific Participant) and live unread message counter badge.
 - **FR-404 (Reactions & Confetti):** Floating emoji reaction triggers (👍, ❤️, 👏, 😂, 🎉, 🚀) with optional full-screen celebratory canvas confetti.
 - **FR-405 (Hand Raising):** Hand raise queue for orderly discussions with notification badges on participant tiles.
+- **FR-406 (Live Speech-to-Text & Closed Captions):** Browser-native Web Speech API (`webkitSpeechRecognition`) continuous real-time transcription with speaker attribution and bottom toolbar CC toggle.
+- **FR-407 (AI Meeting Summaries via Google Gemini):** Google Gemini 3 Flash automated structured executive summary, key decisions, and action items generated upon meeting conclusion.
+- **FR-408 (Automated Zoho Mail Delivery):** Automatic SMTP email dispatch sending full verbatim `.txt` transcript attachments + summary notes to hosts/co-hosts and summary notes to attendees.
 
 ---
 

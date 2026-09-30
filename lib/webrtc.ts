@@ -5,13 +5,9 @@ import {
   deleteDoc,
   onSnapshot,
   addDoc,
-  serverTimestamp,
   updateDoc,
   query,
   where,
-  orderBy,
-  getDocs,
-  writeBatch,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
 import { Participant, SignalData, TranscriptItem } from './types';

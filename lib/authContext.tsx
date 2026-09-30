@@ -92,11 +92,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   });
 
   const [loading, setLoading] = useState(true);
-  const [isFirebaseReady, setIsFirebaseReady] = useState(false);
+  const [isFirebaseReady] = useState(() => isFirebaseConfigured());
 
   useEffect(() => {
     const ready = isFirebaseConfigured();
-    setIsFirebaseReady(ready);
 
     // Clear any previous legacy guest sessions
     if (typeof window !== 'undefined') {

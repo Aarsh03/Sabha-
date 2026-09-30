@@ -127,16 +127,33 @@ erDiagram
 | Field Name | Type | Nullable | Description |
 | :--- | :--- | :--- | :--- |
 | `id` | `string` | No | Peer identifier matching document ID |
-| `uid` | `string` | No | Firebase Auth UID or guest ID |
+| `uid` | `string` | No | Firebase Auth UID |
 | `name` | `string` | No | Display name |
+| `email` | `string` | Yes | Verified Google account email |
 | `photoURL` | `string` | Yes | User avatar URL |
 | `isHost` | `boolean`| No | Host admin privileges flag |
+| `isCoHost` | `boolean`| Yes | Co-Host admin privileges flag |
 | `audioEnabled` | `boolean`| No | Microphone mute state |
 | `videoEnabled` | `boolean`| No | Camera track state |
 | `screenSharing`| `boolean`| No | Whether currently sharing screen |
 | `isHandRaised` | `boolean`| No | In hand-raise queue |
 | `isMutedByHost`| `boolean`| No | Host forced-mute state |
 | `joinedAt` | `number` | No | Epoch timestamp in milliseconds |
+
+### 3.3 Sub-Collection: `rooms/{roomId}/waiting`
+- **Document ID:** `{peerId}`
+- **Lifecycle:** Created when an attendee knocks in the waiting room; deleted or updated to `status: 'admitted'` or `status: 'denied'` by the host or co-host.
+
+| Field Name | Type | Nullable | Description |
+| :--- | :--- | :--- | :--- |
+| `id` | `string` | No | Unique participant peer ID |
+| `uid` | `string` | No | Authenticated Firebase UID |
+| `name` | `string` | No | Verified attendee name |
+| `photoURL` | `string` | Yes | Attendee avatar URL |
+| `status` | `string` | No | `'waiting'` \| `'admitted'` \| `'denied'` |
+| `audioEnabled` | `boolean`| No | Microphone status upon join |
+| `videoEnabled` | `boolean`| No | Camera status upon join |
+| `requestedAt` | `number` | No | Epoch timestamp in milliseconds |
 
 ### 3.3 Sub-Collection: `rooms/{roomId}/messages`
 - **Document ID:** Auto-generated Firestore ID

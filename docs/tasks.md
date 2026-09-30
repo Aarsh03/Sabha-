@@ -82,9 +82,18 @@
 
 ---
 
-## Sprint 8: Future Enhancements & Scalability (Roadmap)
-- [ ] **TASK-801:** Implement virtual background blurring and custom image replacement via MediaPipe Selfie Segmentation.
-- [ ] **TASK-802:** Add AI-powered automated live meeting transcription using Web Speech API or Gemini Flash.
-- [ ] **TASK-803:** Implement Breakout Rooms feature with independent Firestore sub-channel rooms.
-- [ ] **TASK-804:** Support mobile-responsive portrait HUD optimizations for smartphone browsers.
-- [ ] **TASK-805:** Add end-of-meeting summary notes export (Markdown format).
+## Sprint 8: Live Speech Transcription, AI Intelligence & Multi-View (Completed)
+- [x] **TASK-801:** Implement browser-native live speech-to-text transcription engine (`lib/transcriptionService.ts`) via Web Speech API (`webkitSpeechRecognition`) with zero cloud cost.
+- [x] **TASK-802:** Implement live closed captioning (CC) subtitle overlay with speaker attribution and bottom toolbar toggle in `MeetingControls.tsx`.
+- [x] **TASK-803:** Build serverless AI summarization endpoint (`/api/meeting/summarize-and-email`) integrating Google Gemini 3 Flash to generate structured executive summaries and action items.
+- [x] **TASK-804:** Implement automated Zoho Mail SMTP delivery (`smtp.zoho.in:465`) sending full verbatim `.txt` transcript attachments + summary notes to hosts/co-hosts and summary notes to attendees.
+- [x] **TASK-805:** Implement Co-Host delegation system allowing hosts to assign moderator privileges (mute, kick, admit waiting users).
+- [x] **TASK-806:** Implement Zoom-style Multi-View switcher (Gallery, Active Speaker, Multi-Speaker) with top-bar controls and fullscreen toggle.
+
+---
+
+## Sprint 9: Future Enhancements & Scalability (Roadmap)
+- [ ] **TASK-901:** Implement virtual background blurring and custom image replacement via MediaPipe Selfie Segmentation.
+- [ ] **TASK-902:** Implement Breakout Rooms feature with independent Firestore sub-channel rooms.
+- [ ] **TASK-903:** Add Web Audio noise gate and high-pass / low-pass filter chain for background noise suppression.
+- [ ] **TASK-904:** Add real-time in-meeting multiple-choice voting polls synchronized through Firestore.
