@@ -65,6 +65,7 @@ Next.js App Router directory. Handles routing, pages, and serverless API endpoin
   - `/auth/record-login/route.ts` - Serverless endpoint to record user login IPs and details to Firestore for auditing.
   - `/livekit-token/route.ts` - Generates secure JWT tokens for LiveKit SFU access.
   - `/meeting/summarize-and-email/route.ts` - Uses Google Gemini and Zoho Mail SMTP to generate AI meeting notes and dispatch summaries and verbatim transcripts.
+  - `/translate/route.ts` - Real-time Hindi-to-English translation endpoint powered by Gemini Flash with fast public gateway fallback.
   - `/room/leave/route.ts` - Handles server-side room teardown and broadcast termination signals when a user leaves.
 - **/room**
   - `/[roomId]/page.tsx` - Server component for the meeting room route (e.g., `/room/123`).
@@ -103,7 +104,8 @@ Core business logic, services, and utilities.
 - `firebase.ts` - Firebase initialization and exported instances (Auth, Firestore).
 - `livekitService.ts` - Wrapper for the LiveKit Client SDK, handling SFU track subscriptions and publishing.
 - `roomService.ts` - Firestore operations (creating rooms, joining, updating presence, and signaling).
-- `transcriptionService.ts` - Web Speech API live continuous speech recognition service for real-time speaker transcription and closed captions.
+- `transcriptionService.ts` - Web Speech API live continuous speech recognition service supporting Hindi (hi-IN) and English (en-IN, en-US) with interim speech buffer flushing.
+- `translation.ts` - Client and server translation utility with in-memory caching for real-time Hindi-to-English translation.
 - `types.ts` - Global TypeScript interfaces (SignalData, User, Participant states).
 - `webrtc.ts` - Native Full-Mesh WebRTC logic (`RTCPeerConnection`, ICE candidates) used as a fallback if LiveKit is absent.
 

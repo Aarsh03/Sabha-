@@ -494,3 +494,37 @@ export async function updateParticipantRole(
   }
 }
 
+/**
+ * Register participant in Firestore with presence and email
+ */
+export async function registerParticipant(
+  roomId: string,
+  participant: Participant
+): Promise<void> {
+  if (isFirebaseConfigured() && db) {
+    try {
+      const participantRef = doc(db, `rooms/${roomId}/participants/${participant.id}`);
+      await setDoc(
+        participantRef,
+        {
+          id: participant.id,
+          uid: participant.uid,
+          name: participant.name,
+          email: participant.email || null,
+          photoURL: participant.photoURL || null,
+          isHost: participant.isHost,
+          isCoHost: participant.isCoHost || false,
+          audioEnabled: participant.audioEnabled,
+          videoEnabled: participant.videoEnabled,
+          joinedAt: participant.joinedAt || Date.now(),
+          lastSeen: Date.now(),
+        },
+        { merge: true }
+      );
+    } catch (err) {
+      console.warn('Error registering participant in Firestore:', err);
+    }
+  }
+}
+
+

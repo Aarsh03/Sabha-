@@ -32,6 +32,15 @@ The following files and dependencies are tracked:
 - **Improper Variable Declarations:** 
   - **Location:** `lib/roomService.ts`
   - **Status:** *(Resolved: Changed `let waitingMap` to `const waitingMap`).*
+- **Gemini API 404 Model Deprecation:**
+  - **Location:** `app/api/meeting/summarize-and-email/route.ts`
+  - **Status:** *(Resolved: Upgraded model cascade to `gemini-3.5-flash` and `gemini-3.8-flash`, removing deprecated `gemini-2.5-*` references).*
+- **Attendee Email Delivery Failure:**
+  - **Location:** `lib/livekitService.ts`, `app/api/livekit-token/route.ts`, `app/api/meeting/summarize-and-email/route.ts`
+  - **Status:** *(Resolved: Participant email now propagated through LiveKit token metadata, parsed in `syncParticipants()`, registered in Firestore `/rooms/{roomId}/participants`, and dispatched individually to each attendee).*
+- **Truncated Concluding Meeting Speech:**
+  - **Location:** `lib/transcriptionService.ts`, `components/meeting/MeetingRoom.tsx`
+  - **Status:** *(Resolved: Added `flushInterim()` buffer mechanism ensuring words spoken right before call end are converted to final transcript items).*
 
 ---
 

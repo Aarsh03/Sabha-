@@ -27,6 +27,7 @@ export interface TranscriptItem {
   senderId: string;
   senderName: string;
   text: string;
+  translation?: string;
   timestamp: number;
   isFinal: boolean;
 }

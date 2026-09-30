@@ -90,10 +90,18 @@
 - [x] **TASK-805:** Implement Co-Host delegation system allowing hosts to assign moderator privileges (mute, kick, admit waiting users).
 - [x] **TASK-806:** Implement Zoom-style Multi-View switcher (Gallery, Active Speaker, Multi-Speaker) with top-bar controls and fullscreen toggle.
 
+## Sprint 9: Multilingual Speech, AI Translation & Production Reliability (Completed)
+- [x] **TASK-901:** Implement native Hindi speech recognition (`hi-IN`) and Indian English (`en-IN`) with on-the-fly language switching directly from the MeetingControls CC button.
+- [x] **TASK-902:** Build real-time Hindi-to-English translation engine (`/api/translate` & `lib/translation.ts`) with Gemini 3.5 Flash and fast fallback, rendering live English translations in subtitle overlays and transcripts.
+- [x] **TASK-903:** Implement `flushInterim()` speech buffer mechanism in `LiveTranscriptionService` and `MeetingRoom.tsx` to prevent losing concluding words spoken right before call end or muting.
+- [x] **TASK-904:** Fix Gemini 404 model deprecation on Vercel by migrating primary summarization to Google's official production models (`gemini-3.5-flash` and `gemini-3.8-flash`).
+- [x] **TASK-905:** Resolve attendee email delivery by propagating participant emails through LiveKit token metadata, preserving them in `syncParticipants()`, querying Firestore roster `/rooms/{roomId}/participants` on the server, and delivering individual emails.
+
 ---
 
-## Sprint 9: Future Enhancements & Scalability (Roadmap)
-- [ ] **TASK-901:** Implement virtual background blurring and custom image replacement via MediaPipe Selfie Segmentation.
-- [ ] **TASK-902:** Implement Breakout Rooms feature with independent Firestore sub-channel rooms.
-- [ ] **TASK-903:** Add Web Audio noise gate and high-pass / low-pass filter chain for background noise suppression.
-- [ ] **TASK-904:** Add real-time in-meeting multiple-choice voting polls synchronized through Firestore.
+## Sprint 10: Future Enhancements & Scalability (Roadmap)
+- [ ] **TASK-1001:** Implement virtual background blurring and custom image replacement via MediaPipe Selfie Segmentation.
+- [ ] **TASK-1002:** Implement Breakout Rooms feature with independent Firestore sub-channel rooms.
+- [ ] **TASK-1003:** Add Web Audio noise gate and high-pass / low-pass filter chain for background noise suppression.
+- [ ] **TASK-1004:** Add real-time in-meeting multiple-choice voting polls synchronized through Firestore.
+

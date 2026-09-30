@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
+import { db, isFirebaseConfigured } from '@/lib/firebase';
+import { collection, getDocs } from 'firebase/firestore';
 
 interface ParticipantSummaryData {
   id?: string;
@@ -13,6 +15,7 @@ interface ParticipantSummaryData {
 interface TranscriptItemData {
   senderName: string;
   text: string;
+  translation?: string;
   timestamp: number;
 }
 
@@ -65,10 +68,8 @@ export async function POST(req: NextRequest) {
       timeStyle: 'short',
     });
 
-    const participantNames = participants.map((p) => p.name || 'Participant').join(', ');
-
-    // 1. Separate host/co-host emails vs attendee emails
-    const hostEmails = Array.from(
+    // 1. Collect all participant emails from payload
+    const hostEmails: string[] = Array.from(
       new Set(
         participants
           .filter((p) => (p.isHost || p.isCoHost) && p.email && p.email.includes('@'))
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
       )
     );
 
-    const attendeeEmails = Array.from(
+    const attendeeEmails: string[] = Array.from(
       new Set(
         participants
           .filter((p) => !p.isHost && !p.isCoHost && p.email && p.email.includes('@'))
@@ -84,6 +85,32 @@ export async function POST(req: NextRequest) {
           .filter((email) => !hostEmails.includes(email))
       )
     );
+
+    // Double-check Firestore database roster to capture all registered participants
+    if (isFirebaseConfigured() && db) {
+      try {
+        const snap = await getDocs(collection(db, `rooms/${roomId}/participants`));
+        snap.forEach((d) => {
+          const data = d.data() as any;
+          if (data && data.email && typeof data.email === 'string' && data.email.includes('@')) {
+            const cleanEmail = data.email.trim().toLowerCase();
+            if (data.isHost || data.isCoHost) {
+              if (!hostEmails.includes(cleanEmail)) {
+                hostEmails.push(cleanEmail);
+              }
+            } else {
+              if (!hostEmails.includes(cleanEmail) && !attendeeEmails.includes(cleanEmail)) {
+                attendeeEmails.push(cleanEmail);
+              }
+            }
+          }
+        });
+      } catch (fsErr) {
+        console.warn('Could not query Firestore participants for emails:', fsErr);
+      }
+    }
+
+    const participantNames = participants.map((p) => p.name || 'Participant').join(', ');
 
     // 2. Generate Verbatim Transcript Text
     let transcriptText = '';
@@ -94,7 +121,8 @@ export async function POST(req: NextRequest) {
         const m = Math.floor(offsetSec / 60);
         const s = offsetSec % 60;
         const timeStr = `[${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}]`;
-        return `${timeStr} ${t.senderName}: ${t.text}`;
+        const translatedPart = t.translation && t.translation !== t.text ? ` (${t.translation})` : '';
+        return `${timeStr} ${t.senderName}: ${t.text}${translatedPart}`;
       });
 
       transcriptText = [
@@ -130,14 +158,19 @@ export async function POST(req: NextRequest) {
       ].join('\r\n');
     }
 
-    // 3. AI Meeting Summary Generation via Gemini
+    // 3. AI Meeting Summary Generation via Gemini (3.5-flash / 3.8-flash)
     let aiSummaryMarkdown = '';
-    const geminiKey = process.env.GEMINI_API_KEY;
+    const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
 
     if (geminiKey && transcript && transcript.length > 0) {
       try {
         const ai = new GoogleGenAI({ apiKey: geminiKey });
-        const dialogue = transcript.map((t) => `${t.senderName}: ${t.text}`).join('\n');
+        const dialogue = transcript
+          .map((t) => {
+            const tr = t.translation && t.translation !== t.text ? ` [Translation: ${t.translation}]` : '';
+            return `${t.senderName}: ${t.text}${tr}`;
+          })
+          .join('\n');
 
         const prompt = `You are an elite executive AI assistant summarizing a Sabha (सभा) video conference.
 Analyze the following meeting metadata and verbatim dialogue:
@@ -150,6 +183,11 @@ Attendees: ${participantNames}
 
 Verbatim Dialogue:
 ${dialogue.slice(0, 15000)}
+
+Instructions:
+- The spoken dialogue may contain Hindi (हिन्दी), Hinglish, or English speech.
+- Accurately understand and translate any Hindi speech into clear, high-quality, professional English in the Executive Overview, Key Discussion Points & Decisions, and Action Items.
+- Retain accurate names, key technical terms, and explicit decisions.
 
 Please produce a concise, professional, beautifully formatted summary in Markdown with the following structured sections:
 # 📋 Sabha Meeting Summary
@@ -170,20 +208,20 @@ Please produce a concise, professional, beautifully formatted summary in Markdow
 Ensure clarity, professional tone, and zero fluff.`;
 
         let result;
-        try {
-          result = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: prompt,
-          });
-        } catch (mErr) {
-          console.warn('Fallback to gemini-2.5-flash-lite:', mErr);
-          result = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-lite',
-            contents: prompt,
-          });
+        const modelsToTry = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+        for (const model of modelsToTry) {
+          try {
+            result = await ai.models.generateContent({
+              model,
+              contents: prompt,
+            });
+            if (result && result.text) break;
+          } catch (mErr: any) {
+            console.warn(`Model ${model} failed, trying next:`, mErr?.message || mErr);
+          }
         }
 
-        aiSummaryMarkdown = result.text || '';
+        aiSummaryMarkdown = result?.text || '';
       } catch (geminiError: any) {
         console.error('Gemini summarization failed:', geminiError?.message || geminiError);
       }
@@ -220,7 +258,7 @@ The Sabha assembly concluded successfully after ${durationMinutes} minutes. ${
     const zohoHost = process.env.ZOHO_MAIL_HOST || 'smtp.zoho.in';
     const zohoPort = Number(process.env.ZOHO_MAIL_PORT || 465);
 
-    let emailsDispatched = {
+    const emailsDispatched = {
       hosts: 0,
       attendees: 0,
     };
@@ -316,19 +354,21 @@ The Sabha assembly concluded successfully after ${durationMinutes} minutes. ${
         }
       }
 
-      // 4b. Send to Attendees (Summary Notes Only, no full txt attachment as requested)
+      // 4b. Send to Attendees (Summary Notes Only, individual delivery to each attendee)
       if (attendeeEmails.length > 0) {
-        try {
-          await transporter.sendMail({
-            from: `"Sabha Assembly" <${zohoUser}>`,
-            to: attendeeEmails.join(', '),
-            subject: `[Sabha Meeting Notes] ${meetingTitle}`,
-            html: createEmailTemplate(false),
-            text: aiSummaryMarkdown,
-          });
-          emailsDispatched.attendees = attendeeEmails.length;
-        } catch (sendAttendeeErr) {
-          console.error('Error emailing attendees:', sendAttendeeErr);
+        for (const recipient of attendeeEmails) {
+          try {
+            await transporter.sendMail({
+              from: `"Sabha Assembly" <${zohoUser}>`,
+              to: recipient,
+              subject: `[Sabha Meeting Notes] ${meetingTitle}`,
+              html: createEmailTemplate(false),
+              text: aiSummaryMarkdown,
+            });
+            emailsDispatched.attendees += 1;
+          } catch (sendAttendeeErr) {
+            console.error(`Error emailing attendee ${recipient}:`, sendAttendeeErr);
+          }
         }
       }
     } else {

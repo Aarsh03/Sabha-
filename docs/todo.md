@@ -24,7 +24,9 @@
 - [x] True Firestore database host verification (`room.hostId === user.uid`) replacing insecure query params.
 - [x] Implement Whiteboard "Close Board" header action with peer synchronization.
 - [x] **Browser-Native Live Transcription & Captions:** Web Speech API (`webkitSpeechRecognition`) continuous real-time speaker-tagged speech-to-text with CC overlay toggle.
-- [x] **AI Meeting Summarizer & Email Dispatch:** Google Gemini (`gemini-3-flash-preview`) automatic structured executive summary generation and Zoho Mail SMTP (`smtp.zoho.in:465`) dispatch: full `.txt` verbatim transcript + summary to Hosts/Co-hosts, and notes to attendees.
+- [x] **Multilingual Hindi Speech & Real-Time English Translation:** Support `hi-IN`, `en-IN`, and `en-US` spoken language switcher directly on CC control; automatic translation of Hindi speech to English in real-time captions and verbatim transcripts (`/api/translate` powered by Gemini 3.5 Flash).
+- [x] **Zero-Loss Meeting Conclusion Audio:** Implemented `flushInterim()` buffer flushing on meeting end and mic toggle, ensuring closing words of calls are never dropped from transcripts.
+- [x] **AI Meeting Summarizer & Email Dispatch:** Google Gemini (`gemini-3.5-flash` / `gemini-3.8-flash` cascade) automatic structured executive summary generation and Zoho Mail SMTP (`smtp.zoho.in:465`) dispatch: full `.txt` verbatim transcript + summary to Hosts/Co-hosts, and executive summary notes delivered individually to all attendees with Firestore roster synchronization.
 
 ---
 

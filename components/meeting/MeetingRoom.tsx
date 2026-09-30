@@ -20,7 +20,9 @@ import {
   admitAllParticipants,
   updateHostPresence,
   updateParticipantRole,
+  registerParticipant,
 } from '@/lib/roomService';
+import { isHindiText, translateHindiToEnglish } from '@/lib/translation';
 import { useAuth } from '@/lib/authContext';
 import { VideoGrid } from './VideoGrid';
 import { MeetingControls } from './MeetingControls';
@@ -119,22 +121,27 @@ export function MeetingRoom({
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const transcriptRef = useRef<TranscriptItem[]>([]);
   const [isCaptionsOn, setIsCaptionsOn] = useState<boolean>(true);
-  const [latestLiveCaption, setLatestLiveCaption] = useState<{ senderName: string; text: string } | null>(null);
+  const [captionLanguage, setCaptionLanguage] = useState<string>('hi-IN');
+  const [latestLiveCaption, setLatestLiveCaption] = useState<{
+    senderName: string;
+    text: string;
+    translation?: string;
+  } | null>(null);
   const captionFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptionServiceRef = useRef<LiveTranscriptionService | null>(null);
 
-  const handleUpdateLiveCaption = (senderName: string, text: string) => {
-    setLatestLiveCaption({ senderName, text });
+  const handleUpdateLiveCaption = (senderName: string, text: string, translation?: string) => {
+    setLatestLiveCaption({ senderName, text, translation });
     if (captionFadeTimerRef.current) {
       clearTimeout(captionFadeTimerRef.current);
     }
     captionFadeTimerRef.current = setTimeout(() => {
       setLatestLiveCaption(null);
-    }, 4500);
+    }, 5500);
   };
 
   const handleAppendTranscriptItem = (item: TranscriptItem) => {
-    handleUpdateLiveCaption(item.senderName, item.text);
+    handleUpdateLiveCaption(item.senderName, item.text, item.translation);
     if (item.isFinal) {
       transcriptRef.current.push(item);
       setTranscript((prev) => [...prev, item]);
@@ -207,6 +214,12 @@ export function MeetingRoom({
         updateHostPresence(roomId, true).catch(() => {});
       }
 
+      // Record participant identity & email in Firestore
+      registerParticipant(roomId, {
+        ...initialParticipant,
+        isHost: isVerifiedHost,
+      }).catch(() => {});
+
       // Check if room is locked and user is not verified host
       if (roomData.isLocked && !isVerifiedHost) {
         alert('This Sabha meeting has been locked by the host.');
@@ -220,7 +233,7 @@ export function MeetingRoom({
         const identity = initialParticipant.id;
         const username = initialParticipant.name || initialParticipant.id;
         const res = await fetch(
-          `/api/livekit-token?room=${encodeURIComponent(roomId)}&identity=${encodeURIComponent(identity)}&username=${encodeURIComponent(username)}&isHost=${isVerifiedHost}&photoURL=${encodeURIComponent(initialParticipant.photoURL || '')}`
+          `/api/livekit-token?room=${encodeURIComponent(roomId)}&identity=${encodeURIComponent(identity)}&username=${encodeURIComponent(username)}&isHost=${isVerifiedHost}&photoURL=${encodeURIComponent(initialParticipant.photoURL || '')}&email=${encodeURIComponent(initialParticipant.email || '')}`
         );
 
         if (res.ok) {
@@ -501,11 +514,11 @@ export function MeetingRoom({
 
   // Web Speech API Live Transcription
   useEffect(() => {
-    const service = new LiveTranscriptionService();
+    const service = new LiveTranscriptionService(captionLanguage);
     transcriptionServiceRef.current = service;
 
     service.setCallbacks((text, isFinal) => {
-      const item: TranscriptItem = {
+      const baseItem: TranscriptItem = {
         id: `${localParticipant.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         senderId: localParticipant.id,
         senderName: localParticipant.name || 'You',
@@ -514,20 +527,45 @@ export function MeetingRoom({
         isFinal,
       };
 
-      handleUpdateLiveCaption(localParticipant.name || 'You', text);
+      if (isHindiText(text)) {
+        translateHindiToEnglish(text).then((trans) => {
+          handleUpdateLiveCaption(localParticipant.name || 'You', text, trans);
 
-      if (isFinal) {
-        transcriptRef.current.push(item);
-        setTranscript((prev) => [...prev, item]);
+          if (isFinal) {
+            const itemWithTrans: TranscriptItem = {
+              ...baseItem,
+              translation: trans,
+            };
+            transcriptRef.current.push(itemWithTrans);
+            setTranscript((prev) => [...prev, itemWithTrans]);
 
-        // Broadcast to peers via active media engine
-        if (isLiveKitSFU && liveKitManagerRef.current) {
-          liveKitManagerRef.current.sendData({
-            type: 'transcript-chunk',
-            item,
-          });
-        } else if (rtcManagerRef.current) {
-          rtcManagerRef.current.sendTranscriptItem(item);
+            // Broadcast to peers via active media engine
+            if (isLiveKitSFU && liveKitManagerRef.current) {
+              liveKitManagerRef.current.sendData({
+                type: 'transcript-chunk',
+                item: itemWithTrans,
+              });
+            } else if (rtcManagerRef.current) {
+              rtcManagerRef.current.sendTranscriptItem(itemWithTrans);
+            }
+          }
+        });
+      } else {
+        handleUpdateLiveCaption(localParticipant.name || 'You', text);
+
+        if (isFinal) {
+          transcriptRef.current.push(baseItem);
+          setTranscript((prev) => [...prev, baseItem]);
+
+          // Broadcast to peers via active media engine
+          if (isLiveKitSFU && liveKitManagerRef.current) {
+            liveKitManagerRef.current.sendData({
+              type: 'transcript-chunk',
+              item: baseItem,
+            });
+          } else if (rtcManagerRef.current) {
+            rtcManagerRef.current.sendTranscriptItem(baseItem);
+          }
         }
       }
     });
@@ -537,13 +575,25 @@ export function MeetingRoom({
     }
 
     return () => {
+      const flushed = service.flushInterim();
+      if (flushed) {
+        const flushedItem: TranscriptItem = {
+          id: `${localParticipant.id}_${Date.now()}_clean_flush`,
+          senderId: localParticipant.id,
+          senderName: localParticipant.name || 'You',
+          text: flushed,
+          timestamp: Date.now(),
+          isFinal: true,
+        };
+        transcriptRef.current.push(flushedItem);
+      }
       service.destroy();
       transcriptionServiceRef.current = null;
       if (captionFadeTimerRef.current) {
         clearTimeout(captionFadeTimerRef.current);
       }
     };
-  }, [localParticipant.id, localParticipant.name, isLiveKitSFU]);
+  }, [localParticipant.id, localParticipant.name, isLiveKitSFU, captionLanguage]);
 
   // Synchronize transcription with microphone mute/unmute state
   useEffect(() => {
@@ -1116,6 +1166,29 @@ export function MeetingRoom({
   const handleEndMeetingForAll = async () => {
     setIsLeaveModalOpen(false);
     updateHostPresence(roomId, false).catch(() => {});
+
+    // 0. Flush any pending un-finalized speech so the concluding words are never lost
+    if (transcriptionServiceRef.current) {
+      const flushed = transcriptionServiceRef.current.flushInterim();
+      if (flushed && flushed.length > 0) {
+        const flushedItem: TranscriptItem = {
+          id: `${localParticipant.id}_${Date.now()}_end_flush`,
+          senderId: localParticipant.id,
+          senderName: localParticipant.name || 'You',
+          text: flushed,
+          timestamp: Date.now(),
+          isFinal: true,
+        };
+        if (isHindiText(flushed)) {
+          try {
+            const trans = await translateHindiToEnglish(flushed);
+            flushedItem.translation = trans;
+          } catch {}
+        }
+        transcriptRef.current.push(flushedItem);
+      }
+    }
+
     // 1. Notify server with endForAll flag (closes LiveKit room and purges Firestore room participants)
     try {
       if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
@@ -1140,7 +1213,7 @@ export function MeetingRoom({
         participants: allParticipants.map((p) => ({
           id: p.id,
           name: p.name,
-          email: p.email || null,
+          email: p.email || (p.id === localParticipant.id ? user?.email : null) || null,
           isHost: p.isHost,
           isCoHost: p.isCoHost,
         })),
@@ -1164,6 +1237,9 @@ export function MeetingRoom({
         rtcManagerRef.current?.sendKickCommand(p.id, 'meeting-ended').catch(() => {});
       }
     } catch {}
+
+    // Grace period for network payload buffering before tear down
+    await new Promise((resolve) => setTimeout(resolve, 350));
 
     // 3. Disconnect local engines and navigate home
     if (liveKitManagerRef.current) {
@@ -1494,11 +1570,25 @@ export function MeetingRoom({
           onOpenInvite={() => setIsShareModalOpen(true)}
         />
 
-        {/* Live Closed Captions / Subtitles Overlay */}
+        {/* Live Closed Captions / Subtitles Overlay with Hindi-English Translation */}
         {isCaptionsOn && latestLiveCaption && (
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 max-w-2xl px-5 py-2.5 rounded-2xl bg-slate-950/85 backdrop-blur-md border border-slate-700/80 text-center shadow-2xl pointer-events-none z-20 animate-in fade-in zoom-in-95 duration-150">
-            <span className="text-amber-400 font-bold text-xs mr-2">{latestLiveCaption.senderName}:</span>
-            <span className="text-slate-100 text-sm font-medium tracking-wide">{latestLiveCaption.text}</span>
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 max-w-2xl px-5 py-3 rounded-2xl bg-slate-950/90 backdrop-blur-md border border-slate-700/80 text-center shadow-2xl pointer-events-none z-20 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-center gap-2 mb-1">
+              <span className="text-amber-400 font-bold text-xs">{latestLiveCaption.senderName}</span>
+              {latestLiveCaption.translation && latestLiveCaption.translation !== latestLiveCaption.text && (
+                <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-bold rounded uppercase tracking-wider">
+                  English Translation
+                </span>
+              )}
+            </div>
+            <div className="text-slate-100 text-sm font-medium tracking-wide leading-relaxed">
+              {latestLiveCaption.text}
+            </div>
+            {latestLiveCaption.translation && latestLiveCaption.translation !== latestLiveCaption.text && (
+              <div className="text-amber-300/90 text-xs italic mt-1 font-medium">
+                &ldquo;{latestLiveCaption.translation}&rdquo;
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -1516,7 +1606,12 @@ export function MeetingRoom({
         waitingCount={waitingList.length}
         unreadChatCount={unreadChatCount}
         isCaptionsOn={isCaptionsOn}
+        captionLanguage={captionLanguage}
         onToggleCaptions={() => setIsCaptionsOn((prev) => !prev)}
+        onChangeCaptionLanguage={(lang) => {
+          setCaptionLanguage(lang);
+          transcriptionServiceRef.current?.setLanguage(lang);
+        }}
         onToggleAudio={handleToggleAudio}
         onToggleVideo={handleToggleVideo}
         onToggleScreenShare={handleToggleScreenShare}

@@ -1,6 +1,7 @@
 /**
  * Sabha (सभा) - Live Browser-Native Speech Recognition Service
  * Uses Web Speech API (webkitSpeechRecognition) for zero-cost, real-time transcription.
+ * Supports Hindi (hi-IN), Indian English (en-IN), and US English (en-US).
  */
 
 export interface SpeechRecognitionResultCallback {
@@ -14,9 +15,10 @@ export class LiveTranscriptionService {
   private restartTimeout: ReturnType<typeof setTimeout> | null = null;
   private onResultCallback: SpeechRecognitionResultCallback | null = null;
   private onStatusCallback: ((listening: boolean) => void) | null = null;
-  private language: string = 'en-US';
+  private language: string = 'hi-IN';
+  private lastInterimText: string = '';
 
-  constructor(language: string = 'en-US') {
+  constructor(language: string = 'hi-IN') {
     this.language = language;
     this.initRecognition();
   }
@@ -26,6 +28,27 @@ export class LiveTranscriptionService {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     return Boolean(SpeechRecognition);
+  }
+
+  public getLanguage(): string {
+    return this.language;
+  }
+
+  public setLanguage(newLanguage: string) {
+    if (this.language === newLanguage) return;
+    this.language = newLanguage;
+
+    const wasListening = this.isDesiredListening;
+    if (this.recognition) {
+      try {
+        this.recognition.abort();
+      } catch {}
+      this.recognition = null;
+    }
+    this.initRecognition();
+    if (wasListening) {
+      this.start();
+    }
   }
 
   private initRecognition() {
@@ -57,8 +80,16 @@ export class LiveTranscriptionService {
           const transcript = result[0]?.transcript?.trim();
           const isFinal = Boolean(result.isFinal);
 
-          if (transcript && this.onResultCallback) {
-            this.onResultCallback(transcript, isFinal);
+          if (transcript) {
+            if (isFinal) {
+              this.lastInterimText = '';
+            } else {
+              this.lastInterimText = transcript;
+            }
+
+            if (this.onResultCallback) {
+              this.onResultCallback(transcript, isFinal);
+            }
           }
         }
       };
@@ -111,6 +142,16 @@ export class LiveTranscriptionService {
     if (onStatus) this.onStatusCallback = onStatus;
   }
 
+  /**
+   * Flushes any pending un-finalized interim speech text so the final words
+   * spoken right before ending a meeting or muting are never lost.
+   */
+  public flushInterim(): string | null {
+    const text = this.lastInterimText.trim();
+    this.lastInterimText = '';
+    return text || null;
+  }
+
   public start() {
     if (!this.recognition) {
       this.initRecognition();
@@ -133,6 +174,16 @@ export class LiveTranscriptionService {
       clearTimeout(this.restartTimeout);
       this.restartTimeout = null;
     }
+
+    // Flush any pending speech as final before stopping
+    if (this.lastInterimText.trim() && this.onResultCallback) {
+      const remaining = this.lastInterimText.trim();
+      this.lastInterimText = '';
+      try {
+        this.onResultCallback(remaining, true);
+      } catch {}
+    }
+
     if (this.recognition && this.isActuallyListening) {
       try {
         this.recognition.stop();
@@ -147,5 +198,6 @@ export class LiveTranscriptionService {
     this.recognition = null;
     this.onResultCallback = null;
     this.onStatusCallback = null;
+    this.lastInterimText = '';
   }
 }

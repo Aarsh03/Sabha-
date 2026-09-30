@@ -32,7 +32,9 @@ interface MeetingControlsProps {
   waitingCount?: number;
   unreadChatCount: number;
   isCaptionsOn?: boolean;
+  captionLanguage?: string;
   onToggleCaptions?: () => void;
+  onChangeCaptionLanguage?: (lang: string) => void;
   onToggleAudio: () => void;
   onToggleVideo: () => void;
   onToggleScreenShare: () => void;
@@ -61,7 +63,9 @@ export function MeetingControls({
   waitingCount = 0,
   unreadChatCount,
   isCaptionsOn = true,
+  captionLanguage = 'hi-IN',
   onToggleCaptions,
+  onChangeCaptionLanguage,
   onToggleAudio,
   onToggleVideo,
   onToggleScreenShare,
@@ -230,20 +234,37 @@ export function MeetingControls({
           <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">{isRecording ? 'Stop Rec' : 'Record'}</span>
         </button>
 
-        {/* Live Closed Captions (CC) Toggle */}
+        {/* Live Closed Captions (CC) & Hindi/English Language Switcher */}
         {onToggleCaptions && (
-          <button
-            onClick={onToggleCaptions}
-            className={`flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl transition cursor-pointer ${
-              isCaptionsOn
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
-                : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
-            }`}
-            title={isCaptionsOn ? 'Hide Live Captions' : 'Show Live Captions'}
-          >
-            <Captions className="w-4 h-4 sm:w-5 sm:h-5 sm:mb-1" />
-            <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">{isCaptionsOn ? 'CC On' : 'CC Off'}</span>
-          </button>
+          <div className="relative flex items-center justify-center">
+            <button
+              onClick={onToggleCaptions}
+              className={`flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl transition cursor-pointer ${
+                isCaptionsOn
+                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                  : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
+              }`}
+              title={isCaptionsOn ? 'Hide Live Captions' : 'Show Live Captions'}
+            >
+              <Captions className="w-4 h-4 sm:w-5 sm:h-5 sm:mb-1" />
+              <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">{isCaptionsOn ? 'CC On' : 'CC Off'}</span>
+            </button>
+
+            {isCaptionsOn && onChangeCaptionLanguage && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const nextLang = captionLanguage === 'hi-IN' ? 'en-IN' : captionLanguage === 'en-IN' ? 'en-US' : 'hi-IN';
+                  onChangeCaptionLanguage(nextLang);
+                }}
+                className="absolute -top-1.5 -right-1 px-1.5 py-0.5 rounded-md bg-slate-900 border border-amber-500/60 text-[8px] font-black text-amber-300 tracking-wider hover:bg-slate-800 transition cursor-pointer shadow-lg z-10"
+                title={`Spoken Language: ${captionLanguage === 'hi-IN' ? 'Hindi (हिन्दी)' : captionLanguage === 'en-IN' ? 'English (India)' : 'English (US)'}. Click to switch.`}
+              >
+                {captionLanguage === 'hi-IN' ? 'हिन्दी' : captionLanguage === 'en-IN' ? 'EN-IN' : 'EN-US'}
+              </button>
+            )}
+          </div>
         )}
 
         {/* Reactions & Hand Raise Popover */}

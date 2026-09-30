@@ -221,6 +221,7 @@ export class LiveKitRoomManager {
           JSON.stringify({
             photoURL: this.localParticipantInfo.photoURL || null,
             uid: this.localParticipantInfo.uid,
+            email: this.localParticipantInfo.email || null,
           })
         );
       } catch {}
@@ -436,10 +437,12 @@ export class LiveKitRoomManager {
     // Add remote participants
     this.room.remoteParticipants.forEach((rp) => {
       let photoURL: string | null = null;
+      let email: string | null = null;
       if (rp.metadata) {
         try {
           const meta = JSON.parse(rp.metadata);
           if (meta?.photoURL) photoURL = meta.photoURL;
+          if (meta?.email) email = meta.email;
         } catch {}
       }
 
@@ -460,6 +463,7 @@ export class LiveKitRoomManager {
         id: rp.identity,
         uid: rp.identity,
         name: rp.name || rp.identity,
+        email: email || null,
         photoURL: photoURL,
         isHost: false, // coordinated via Firestore roomSettings
         isCoHost: isCoHost,

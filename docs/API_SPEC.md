@@ -251,10 +251,11 @@ When operating in LiveKit SFU mode, real-time collaboration messages (such as Wh
 
 ### `POST /api/meeting/summarize-and-email`
 
-Generates an executive AI summary using Google Gemini (`gemini-3-flash-preview` / `gemini-2.5-flash-lite`) from speaker-tagged meeting transcripts and dispatches emails via Zoho Mail SMTP (`smtp.zoho.in:465`).
+Generates an executive AI summary using Google Gemini (`gemini-3.5-flash` with fallback to `gemini-3.8-flash` and `gemini-flash-latest`) from speaker-tagged meeting transcripts and dispatches emails via Zoho Mail SMTP (`smtp.zoho.in:465`).
 
-- **Hosts & Co-hosts:** Receive the formatted AI Executive Summary + Action Items with the complete verbatim transcript attached as `sabha-[roomId]-transcript.txt`.
-- **Participants/Attendees:** Receive the clean AI Executive Summary & Action Items notes directly in their email.
+- **Hosts & Co-hosts:** Receive the formatted AI Executive Summary + Action Items with the complete verbatim transcript attached as `sabha-[roomId]-transcript.txt` (including bilingual Hindi dialogue and English translations).
+- **Participants/Attendees:** Receive the clean AI Executive Summary & Action Items notes delivered individually to their email inbox.
+- **Roster Resilience:** Automatically queries Firestore `/rooms/{roomId}/participants` to merge any attendee who registered their email upon entry, ensuring no attendee is missed even if disconnected right before call end.
 
 #### Request Body
 ```json
@@ -274,7 +275,8 @@ Generates an executive AI summary using Google Gemini (`gemini-3-flash-preview` 
   "transcript": [
     {
       "senderName": "Harsh",
-      "text": "Welcome everyone to Sabha.",
+      "text": "नमस्ते, सभा में आपका स्वागत है।",
+      "translation": "Hello, welcome to Sabha.",
       "timestamp": 1727700000000
     }
   ]
@@ -294,3 +296,28 @@ Generates an executive AI summary using Google Gemini (`gemini-3-flash-preview` 
   "totalAttendeeRecipients": 4
 }
 ```
+
+---
+
+## 6. Real-Time Translation API
+
+### `POST /api/translate`
+
+Translates spoken Hindi speech segments to English using Gemini (`gemini-3.5-flash` / `gemini-3.8-flash`) with fast public gateway fallback.
+
+#### Request Body
+```json
+{
+  "text": "नमस्ते आप सब कैसे हैं?",
+  "from": "hi",
+  "to": "en"
+}
+```
+
+#### Response (`200 OK`)
+```json
+{
+  "translation": "Hello, how are you all?"
+}
+```
+

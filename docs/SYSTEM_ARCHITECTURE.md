@@ -195,3 +195,33 @@ User Speaks -> Web Speech API (LiveTranscriptionService)
 | **Bandwidth (Download)** | $O(N)$ | $O(N)$ with Dynacast bitrate adaptation |
 | **Max Practical Room Size** | 4–6 participants (HD), 8–10 (Audio) | 50–100+ participants |
 | **Infrastructure Cost** | **$0.00 / month** | Free tier (50GB/mo) -> Pay-as-you-go |
+
+---
+
+## 5. Multilingual Live Transcription & AI Intelligence Engine
+
+### 5.1 Architecture Overview
+Sabha combines zero-cost client-side speech recognition with cloud-edge AI intelligence to deliver real-time subtitles and post-meeting documentation.
+
+```mermaid
+flowchart TD
+    Microphone[Microphone Audio Stream] --> SpeechRec[Web Speech API (hi-IN / en-IN / en-US)]
+    SpeechRec --> InterimBuffer[Interim Buffer & flushInterim]
+    SpeechRec --> DevanagariCheck{Contains Hindi?}
+    DevanagariCheck -- Yes --> TransEngine[Translation Engine (/api/translate + Gemini 3.5)]
+    DevanagariCheck -- No --> Broadcast[Broadcast to Peers via LiveKit/WebRTC]
+    TransEngine --> Broadcast
+    Broadcast --> CaptionsOverlay[Dual-line Captions: Hindi + English Translation]
+    InterimBuffer -- End of Meeting --> FullTranscript[Complete Verbatim Transcript]
+    FullTranscript --> GeminiSummarizer[Gemini 3.5/3.8 Flash Summarizer]
+    GeminiSummarizer --> ZohoSMTP[Zoho Mail SMTP Dispatch]
+    ZohoSMTP --> HostRecipient[Host/Co-host: Summary + .txt Verbatim Transcript]
+    ZohoSMTP --> AttendeeRecipients[Attendees: Executive Summary Notes]
+```
+
+### 5.2 Key Features
+1. **Multilingual Speech Recognition (`hi-IN`, `en-IN`, `en-US`):** Native browser speech recognition tuned for Indian accents and Hindi vocabulary. Language can be switched dynamically on the CC control.
+2. **Real-Time Hindi-to-English Translation:** Analyzes incoming speech for Devanagari Unicode characters and translates in real-time, displaying both the spoken Hindi and its English translation.
+3. **Zero-Loss Concluding Audio (`flushInterim`):** Web Speech API only finalizes interim speech after extended pauses; `flushInterim()` flushes pending speech immediately when the host ends the call or a user mutes, ensuring closing words are never dropped.
+4. **Resilient Attendee Roster Synchronization:** Queries Firestore `/rooms/{roomId}/participants` to guarantee every attendee who joined receives the meeting notes individually, preserving attendee privacy.
+

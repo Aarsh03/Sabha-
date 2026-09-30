@@ -8,6 +8,7 @@ export async function GET(req: NextRequest) {
 
   const isHost = req.nextUrl.searchParams.get('isHost') === 'true';
   const photoURL = req.nextUrl.searchParams.get('photoURL');
+  const email = req.nextUrl.searchParams.get('email');
 
   if (!room || !rawIdentity) {
     return NextResponse.json({ error: 'Missing room or identity' }, { status: 400 });
@@ -31,6 +32,7 @@ export async function GET(req: NextRequest) {
     const metadataObj = {
       photoURL: photoURL || null,
       name: username,
+      email: email || null,
     };
 
     const at = new AccessToken(apiKey, apiSecret, {
