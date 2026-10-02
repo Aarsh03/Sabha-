@@ -258,14 +258,14 @@ export function MeetingControls({
               title={
                 isCaptionsOn
                   ? isBraveMode
-                    ? 'Brave Shields active (Captions ON). Click to toggle.'
+                    ? 'Live Captions ON (Brave Mode: Showing subtitles from other participants. For own mic speech-to-text, use Chrome or Edge)'
                     : 'Hide Live Captions'
                   : 'Show Live Captions'
               }
             >
-              <Captions className={`w-4 h-4 sm:w-5 sm:h-5 sm:mb-1 ${isBraveMode && isCaptionsOn ? 'text-orange-400' : ''}`} />
+              <Captions className={`w-4 h-4 sm:w-5 sm:h-5 sm:mb-1 ${isCaptionsOn ? (isBraveMode ? 'text-amber-400' : 'text-amber-400') : ''}`} />
               <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">
-                {isCaptionsOn ? (isBraveMode ? '🦁 Brave' : 'CC On') : 'CC Off'}
+                {isCaptionsOn ? 'CC On' : 'CC Off'}
               </span>
             </button>
 

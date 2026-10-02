@@ -40,6 +40,10 @@ The following files and dependencies are tracked:
   - **Location:** `lib/translation.ts`, `components/meeting/MeetingControls.tsx`, `components/meeting/MeetingRoom.tsx`
   - **Details:** Previously, users could only toggle single languages and could not force incoming multi-speaker dialogue to translate into a single chosen language.
   - **Status:** *(Resolved: Implemented personalized Target Language Subtitle Engine with interactive CC popover. Supports 'Hindi Only' (translates all speech to Hindi), 'English Only' (translates all speech to English), 'Dual' (stacked bilingual subtitles), 9 Indian regional languages (मराठी, বাংলা, தமிழ், తెలుగు, ગુજરાતી, ಕನ್ನಡ, ਪੰਜਾਬੀ, മലയാളം, اردو), and 6 global languages (Español, Français, Deutsch, 日本語, العربية, Русский) with 0ms memory caching and $0 token cost).*
+- **Brave Browser Privacy Blocking of Google Web Speech API:**
+  - **Location:** `components/meeting/MeetingRoom.tsx`, `lib/transcriptionService.ts`
+  - **Details:** Modern Brave desktop releases removed the Google Speech toggle completely from `brave://settings/system` for strict privacy, and browser security sandboxes block webpages from navigating to internal `brave://` protocols. This caused confusion when an earlier banner told users to visit `brave://settings/system`.
+  - **Status:** *(Resolved: Updated Brave notice to accurately inform users that Brave disables speech-to-text for privacy while full 2-way WebRTC audio/video and viewing incoming live subtitles works 100%. Replaced the unworkable internal link with a 1-click 'Copy Link for Chrome/Edge' button and a 'Got it' dismiss button).*
 
 ---
 

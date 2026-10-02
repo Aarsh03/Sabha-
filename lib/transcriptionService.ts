@@ -89,7 +89,7 @@ export class LiveTranscriptionService {
     if (isBrave) {
       this.isBraveOrFallbackMode = true;
       this.onModeChangeCallback?.(true);
-      console.log('[Transcription] Brave Browser verified. Web Speech API requires Google services enabled in brave://settings/system.');
+      console.log('[Transcription] Brave Browser verified. Native speech recognition is disabled by Brave Shields. Subtitles from other attendees will display on screen.');
     }
   }
 

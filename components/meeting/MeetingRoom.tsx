@@ -1603,20 +1603,38 @@ export function MeetingRoom({
 
         {/* Brave Browser Shields Notice Banner */}
         {isBraveActive && !dismissBraveNotice && (
-          <div className="absolute top-16 left-1/2 -translate-x-1/2 max-w-xl w-[92%] sm:w-auto px-4 py-2.5 rounded-xl bg-orange-950/90 border border-orange-500/60 backdrop-blur-md text-orange-200 text-xs flex items-center justify-between gap-3 shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 duration-200">
-            <div className="flex items-center gap-2.5">
-              <span className="text-base">🦁</span>
-              <span className="leading-snug">
-                <strong>Brave Browser notice:</strong> Brave Shields blocks speech recognition by default. To enable your mic transcription, toggle &apos;Use Google services for speech recognition&apos; in <code className="bg-orange-900/60 px-1 py-0.5 rounded text-[11px] font-mono">brave://settings/system</code> or use Chrome / Edge. You will still hear everyone and receive transcripts!
-              </span>
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 max-w-2xl w-[94%] sm:w-auto px-4 py-3 rounded-2xl bg-slate-900/95 border border-amber-500/40 backdrop-blur-xl text-slate-200 text-xs shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 duration-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0 text-base">
+                🦁
+              </div>
+              <div className="leading-relaxed">
+                <div className="font-semibold text-amber-300 text-xs flex items-center gap-1.5">
+                  <span>Brave Browser Notice</span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-200 font-normal">Privacy Shield Active</span>
+                </div>
+                <p className="text-slate-300 text-[11px] mt-0.5">
+                  Brave disables Google speech recognition for privacy. You can talk, listen, and view live subtitles from others. To transcribe your own mic, open this meeting in <strong>Chrome</strong> or <strong>Edge</strong>.
+                </p>
+              </div>
             </div>
-            <button
-              onClick={() => setDismissBraveNotice(true)}
-              className="text-orange-400 hover:text-white p-1 rounded-md transition text-sm font-bold flex-shrink-0 cursor-pointer"
-              title="Dismiss"
-            >
-              ✕
-            </button>
+            <div className="flex items-center gap-2 self-end sm:self-center flex-shrink-0">
+              <button
+                onClick={copyInviteLink}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-amber-300 text-[11px] font-medium transition cursor-pointer active:scale-95"
+                title="Copy link to paste into Google Chrome or Microsoft Edge"
+              >
+                {copiedLink ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{copiedLink ? 'Copied Link!' : 'Copy Link for Chrome/Edge'}</span>
+              </button>
+              <button
+                onClick={() => setDismissBraveNotice(true)}
+                className="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition text-[11px] font-medium cursor-pointer"
+                title="Dismiss notice"
+              >
+                Got it
+              </button>
+            </div>
           </div>
         )}
       </div>
