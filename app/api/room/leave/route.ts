@@ -5,7 +5,7 @@ import { RoomServiceClient } from 'livekit-server-sdk';
 
 export async function POST(req: NextRequest) {
   try {
-    let body: any = {};
+    let body: { roomId?: string; participantId?: string; endForAll?: boolean } = {};
     const contentType = req.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       body = await req.json().catch(() => ({}));

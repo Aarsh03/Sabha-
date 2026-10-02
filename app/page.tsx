@@ -10,16 +10,13 @@ import {
   Users,
   Shield,
   ScreenShare,
-  MessageSquare,
   Sparkles,
   ArrowRight,
   Copy,
   Check,
   Zap,
-  Lock,
   PenTool,
   CircleDot,
-  Smile,
   HelpCircle,
 } from 'lucide-react';
 
@@ -34,7 +31,6 @@ export default function HomePage() {
   const generateMeetingCode = () => {
     const part1 = Math.floor(100 + Math.random() * 900);
     const part2 = Math.floor(100 + Math.random() * 900);
-    const part3 = Math.floor(100 + Math.random() * 900);
     return `sabha-${part1}-${part2}`;
   };
 

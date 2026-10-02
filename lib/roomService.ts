@@ -538,7 +538,7 @@ export async function saveRoomTranscriptItem(
   if (isFirebaseConfigured() && db && item && item.text) {
     try {
       const transcriptsCol = collection(db, `rooms/${roomId}/transcripts`);
-      const cleanItem: Record<string, any> = {
+      const cleanItem: Record<string, unknown> = {
         id: item.id,
         senderId: item.senderId || '',
         senderName: item.senderName || 'Participant',

@@ -10,7 +10,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
-import { Participant, SignalData, TranscriptItem } from './types';
+import { Participant, SignalData, TranscriptItem, WhiteboardDrawEvent, ParticipantUpdatePayload } from './types';
 
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
@@ -45,7 +45,7 @@ export class WebRTCManager {
   public onParticipantsChanged: (participants: Participant[]) => void = () => {};
   public onMuteRequested: () => void = () => {};
   public onKicked: (reason?: string) => void = () => {};
-  public onWhiteboardReceived: (event: any) => void = () => {};
+  public onWhiteboardReceived: (event: WhiteboardDrawEvent) => void = () => {};
   public onTranscriptReceived: (item: TranscriptItem) => void = () => {};
   public onMeetingConcluding: () => void = () => {};
 
@@ -72,7 +72,7 @@ export class WebRTCManager {
     // Update tracks for existing peer connections
     this.peerConnections.forEach((pc) => {
       const audioTrack = stream.getAudioTracks()[0];
-      const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio' || (s as any).kind === 'audio');
+      const audioSender = pc.getSenders().find((s) => s.track?.kind === 'audio' || (s as unknown as { kind?: string }).kind === 'audio');
       if (audioSender) {
         audioSender.replaceTrack(audioTrack || null);
       }
@@ -82,7 +82,7 @@ export class WebRTCManager {
         (t) =>
           (t.sender.track && t.sender.track.kind === 'video') ||
           (t.receiver.track && t.receiver.track.kind === 'video') ||
-          ((t as any).kind === 'video')
+          ((t as unknown as { kind?: string }).kind === 'video')
       );
       const cameraTransceiver = videoTransceivers[0];
       const videoTrack = stream.getVideoTracks()[0];
@@ -101,7 +101,7 @@ export class WebRTCManager {
         (t) =>
           (t.sender.track && t.sender.track.kind === 'video') ||
           (t.receiver.track && t.receiver.track.kind === 'video') ||
-          ((t as any).kind === 'video')
+          ((t as unknown as { kind?: string }).kind === 'video')
       );
       // The second video transceiver is dedicated to screen share
       const screenTransceiver = videoTransceivers[1];
@@ -258,7 +258,7 @@ export class WebRTCManager {
         (t) =>
           (t.sender.track && t.sender.track.kind === 'video') ||
           (t.receiver.track && t.receiver.track.kind === 'video') ||
-          ((t as any).kind === 'video')
+          ((t as unknown as { kind?: string }).kind === 'video')
       );
       const isScreenTrack =
         event.track.kind === 'video' &&
@@ -417,28 +417,28 @@ export class WebRTCManager {
     }
 
     if (signal.type === 'kick-command') {
-      const reason = (signal.payload as any)?.reason || 'kicked';
+      const reason = (signal.payload as { reason?: string })?.reason || 'kicked';
       this.onKicked(reason);
       return;
     }
 
-    if ((signal.type as any) === 'whiteboard') {
-      this.onWhiteboardReceived(signal.payload);
+    if (signal.type === 'whiteboard') {
+      this.onWhiteboardReceived(signal.payload as WhiteboardDrawEvent);
       return;
     }
 
-    if ((signal.type as any) === 'transcript-chunk') {
-      this.onTranscriptReceived(signal.payload);
+    if (signal.type === 'transcript-chunk') {
+      this.onTranscriptReceived(signal.payload as TranscriptItem);
       return;
     }
 
-    if ((signal.type as any) === 'meeting-concluding') {
+    if (signal.type === 'meeting-concluding') {
       this.onMeetingConcluding();
       return;
     }
 
-    if ((signal.type as any) === 'participant-update') {
-      const updates = signal.payload as Partial<Participant> & { targetPeerId?: string };
+    if (signal.type === 'participant-update') {
+      const updates = signal.payload as ParticipantUpdatePayload;
       const targetId = updates.targetPeerId || fromPeerId;
       if (targetId === this.localParticipant.id) {
         Object.assign(this.localParticipant, updates);
@@ -476,7 +476,7 @@ export class WebRTCManager {
           }
         }
 
-        await pc.setRemoteDescription(new RTCSessionDescription(signal.payload));
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit));
 
         // Flush any queued candidates
         const pending = this.pendingCandidates.get(fromPeerId) || [];
@@ -508,7 +508,7 @@ export class WebRTCManager {
           return;
         }
 
-        await pc.setRemoteDescription(new RTCSessionDescription(signal.payload));
+        await pc.setRemoteDescription(new RTCSessionDescription(signal.payload as RTCSessionDescriptionInit));
 
         const pending = this.pendingCandidates.get(fromPeerId) || [];
         for (const candidate of pending) {
@@ -523,10 +523,10 @@ export class WebRTCManager {
     } else if (signal.type === 'candidate') {
       try {
         if (pc.remoteDescription && pc.remoteDescription.type) {
-          await pc.addIceCandidate(new RTCIceCandidate(signal.payload));
+          await pc.addIceCandidate(new RTCIceCandidate(signal.payload as RTCIceCandidateInit));
         } else {
           const pending = this.pendingCandidates.get(fromPeerId) || [];
-          pending.push(signal.payload);
+          pending.push(signal.payload as RTCIceCandidateInit);
           this.pendingCandidates.set(fromPeerId, pending);
         }
       } catch (err) {
@@ -586,11 +586,11 @@ export class WebRTCManager {
     }
   }
 
-  public async sendWhiteboardEvent(payload: any) {
+  public async sendWhiteboardEvent(payload: WhiteboardDrawEvent) {
     await this.sendSignal({
       from: this.localParticipant.id,
       to: 'broadcast',
-      type: 'whiteboard' as any,
+      type: 'whiteboard',
       payload,
       timestamp: Date.now(),
     });
@@ -600,7 +600,7 @@ export class WebRTCManager {
     await this.sendSignal({
       from: this.localParticipant.id,
       to: 'broadcast',
-      type: 'transcript-chunk' as any,
+      type: 'transcript-chunk',
       payload: item,
       timestamp: Date.now(),
     });
@@ -623,7 +623,7 @@ export class WebRTCManager {
     this.sendSignal({
       from: this.localParticipant.id,
       to: 'broadcast',
-      type: 'participant-update' as any,
+      type: 'participant-update',
       payload: updates,
       timestamp: Date.now(),
     });
@@ -645,7 +645,7 @@ export class WebRTCManager {
     this.sendSignal({
       from: this.localParticipant.id,
       to: 'broadcast',
-      type: 'participant-update' as any,
+      type: 'participant-update',
       payload: { targetPeerId: peerId, ...updates },
       timestamp: Date.now(),
     });

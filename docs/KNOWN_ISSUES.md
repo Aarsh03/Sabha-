@@ -13,14 +13,10 @@ The following files and dependencies are tracked:
 - **Unused Files:**
   - ~~`components/FirebaseSetupModal.tsx`~~ *(Resolved: Deleted unreferenced modal).*
 - **Unused NPM Dependencies:**
-  - `@livekit/components-react` and `@livekit/components-styles` are installed but never imported, as the application relies purely on the native `livekit-client` SDK instead.
+  - ~~`@livekit/components-react` and `@livekit/components-styles`~~ *(Resolved: uninstalled).*
 - **Unused Functions & Exports (in `lib/firebase.ts`):**
-  - `getActiveFirebaseConfig`
-  - `saveLocalFirebaseConfig`
-  - `clearLocalFirebaseConfig`
-  - `app`
-  - `googleProvider`
-  - `FirebaseConfigOptions` (Type interface)
+  - ~~`getActiveFirebaseConfig`, `saveLocalFirebaseConfig`, `clearLocalFirebaseConfig`, `app`, `googleProvider`, `FirebaseConfigOptions`~~ *(Resolved: removed dead functions; un-exported module-internal names).*
+- **Other dead code removed:** unused `React`/icon imports, unused locals and props, no-op `setAudioStream`, unused translation helpers.
 
 ---
 
@@ -81,9 +77,7 @@ The following files and dependencies are tracked:
 
 ## 4. ⚠️ TypeScript Strictness
 
-- **Rampant `any` Types:** 
-  - There are currently instances of `any` types being used across `lib/webrtc.ts`, `lib/types.ts`, `lib/audio.ts`, and various UI components. 
-  - **Impact:** Breaks strict type safety; gradually migrating to typed DTOs and interfaces (`TranscriptItem`, `SignalData`, `WhiteboardDrawEvent`).
+- ~~**Rampant `any` Types**~~ *(Resolved: replaced with typed DTOs — `SignalPayload`, `DataMessage`, `WhiteboardDrawEvent`, `ErrorLike` in `lib/types.ts`, and browser-API declarations in `lib/browser.d.ts`; ESLint reports zero `no-explicit-any`).*
 
 ---
 
@@ -97,9 +91,5 @@ The following files and dependencies are tracked:
 
 ## 6. 🐢 Performance Bottlenecks & Missing Optimizations
 
-- **Missing `useCallback` Memoization in State Orchestrators:**
-  - **Location:** `components/meeting/MeetingRoom.tsx`
-  - **Details:** Massive handler functions (`handleToggleScreenShare`, `handleMuteParticipant`, etc.) are passed to heavy child components like `<VideoGrid>` and `<ChatPanel>` but are not wrapped in `useCallback`. This causes the entire heavy video DOM tree to re-render whenever trivial state changes occur (like a chat message arriving).
-- **Missing Component Memoization:**
-  - **Location:** `<VideoGrid>`, `<VideoTile>`, `<ChatPanel>`, `<MeetingControls>`
-  - **Details:** These heavy components are not wrapped in `React.memo()`. Combined with the missing `useCallback` in the parent, this leads to severe CPU spikes, layout thrashing, and battery drain during large calls.
+- ~~**Missing `useCallback` Memoization in State Orchestrators**~~ *(Resolved: handlers passed to heavy children now have stable identity via `useStableCallback` in `lib/useStableCallback.ts`, and `participants` is memoized).*
+- ~~**Missing Component Memoization**~~ *(Resolved: `VideoGrid`, `VideoTile`, `ChatPanel`, `MeetingControls` are wrapped in `React.memo()`).*

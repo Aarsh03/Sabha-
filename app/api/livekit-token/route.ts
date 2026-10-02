@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
       token,
       wsUrl,
     });
-  } catch (err: any) {
+  } catch (err) {
     console.error('Error generating LiveKit token:', err);
     return NextResponse.json({ error: 'Failed to generate token' }, { status: 500 });
   }

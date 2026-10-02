@@ -78,10 +78,45 @@ export interface ReactionItem {
   timestamp: number;
 }
 
+export interface WhiteboardDrawEvent {
+  type: 'draw' | 'clear';
+  prevX?: number;
+  prevY?: number;
+  currX?: number;
+  currY?: number;
+  color?: string;
+  lineWidth?: number;
+}
+
+export type ParticipantUpdatePayload = Partial<Participant> & { targetPeerId?: string };
+
+export type SignalPayload =
+  | RTCSessionDescriptionInit
+  | RTCIceCandidateInit
+  | WhiteboardDrawEvent
+  | TranscriptItem
+  | ParticipantUpdatePayload
+  | { reason?: string; remainingSeconds?: number };
+
+export interface DataMessage {
+  type: string;
+  event?: WhiteboardDrawEvent;
+  item?: TranscriptItem;
+  reason?: string;
+  participantId?: string;
+  updates?: Partial<Participant>;
+  [key: string]: unknown;
+}
+
 export interface SignalData {
   from: string;
   to: string;
   type: 'offer' | 'answer' | 'candidate' | 'mute-command' | 'kick-command' | 'whiteboard' | 'participant-update' | 'transcript-chunk' | 'meeting-concluding';
-  payload: any;
+  payload: SignalPayload;
   timestamp: number;
+}
+
+export interface ErrorLike {
+  code?: string;
+  message?: string;
 }

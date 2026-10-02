@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { ChatMessage, Participant } from '@/lib/types';
-import { X, Send, Users, Lock, MessageSquare } from 'lucide-react';
+import { X, Send, Lock, MessageSquare } from 'lucide-react';
 
 interface ChatPanelProps {
   isOpen: boolean;
@@ -16,7 +16,7 @@ interface ChatPanelProps {
   isCoHost?: boolean;
 }
 
-export function ChatPanel({
+function ChatPanelComponent({
   isOpen,
   onClose,
   messages,
@@ -171,3 +171,5 @@ export function ChatPanel({
     </div>
   );
 }
+
+export const ChatPanel = memo(ChatPanelComponent);

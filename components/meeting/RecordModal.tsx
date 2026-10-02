@@ -1,20 +1,18 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { X, Mic, Users, Monitor, CircleDot, Info } from 'lucide-react';
 
 interface RecordModalProps {
   isOpen: boolean;
   onClose: () => void;
   onStartRecording: (options: { includeMic: boolean; includeParticipants: boolean }) => void;
-  isMicAvailable: boolean;
 }
 
 export function RecordModal({
   isOpen,
   onClose,
   onStartRecording,
-  isMicAvailable,
 }: RecordModalProps) {
   const [includeMic, setIncludeMic] = useState(true);
   const [includeParticipants, setIncludeParticipants] = useState(true);

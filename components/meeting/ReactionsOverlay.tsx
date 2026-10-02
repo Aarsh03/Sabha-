@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { ReactionItem } from '@/lib/types';
 
@@ -37,13 +37,18 @@ export function ReactionsOverlay({ latestReaction }: ReactionsOverlayProps) {
       leftOffset: Math.floor(Math.random() * 80) + 10, // 10% to 90%
     };
 
-    setEmojis((prev) => [...prev, newEmoji]);
-
-    const timer = setTimeout(() => {
+    // Defer the add to a timer callback so no setState runs synchronously in the effect body
+    const addTimer = setTimeout(() => {
+      setEmojis((prev) => [...prev, newEmoji]);
+    }, 0);
+    const removeTimer = setTimeout(() => {
       setEmojis((prev) => prev.filter((e) => e.id !== newEmoji.id));
     }, 3000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      clearTimeout(addTimer);
+      clearTimeout(removeTimer);
+    };
   }, [latestReaction]);
 
   return (

@@ -9,25 +9,25 @@
  * 4. Token Protection: Gemini API is strictly preserved ONLY for final post-meeting summarization.
  */
 
-export interface SpeechRecognitionResultCallback {
+interface SpeechRecognitionResultCallback {
   (text: string, isFinal: boolean, translation?: string): void;
 }
 
 /**
  * Detects if the user is running Brave browser
  */
-export async function isBraveBrowser(): Promise<boolean> {
+async function isBraveBrowser(): Promise<boolean> {
   if (typeof window === 'undefined') return false;
   try {
-    if ((navigator as any).brave && typeof (navigator as any).brave.isBrave === 'function') {
-      return await (navigator as any).brave.isBrave();
+    if (navigator.brave && typeof navigator.brave.isBrave === 'function') {
+      return await navigator.brave.isBrave();
     }
   } catch {}
   return false;
 }
 
 export class LiveTranscriptionService {
-  private recognition: any = null;
+  private recognition: SpeechRecognitionLike | null = null;
   private isDesiredListening: boolean = false;
   private isActuallyListening: boolean = false;
   private restartTimeout: ReturnType<typeof setTimeout> | null = null;
@@ -48,7 +48,7 @@ export class LiveTranscriptionService {
   public static isSupported(): boolean {
     if (typeof window === 'undefined') return false;
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      window.SpeechRecognition || window.webkitSpeechRecognition;
     return Boolean(SpeechRecognition);
   }
 
@@ -71,10 +71,6 @@ export class LiveTranscriptionService {
     if (wasListening) {
       this.start();
     }
-  }
-
-  public setAudioStream(_stream: MediaStream | null) {
-    // MediaStream reference kept for interface parity; 0 tokens spent on continuous audio streaming.
   }
 
   public setOnModeChange(cb: (isBraveOrFallback: boolean) => void) {
@@ -127,7 +123,7 @@ export class LiveTranscriptionService {
     if (typeof window === 'undefined') return;
 
     const SpeechRecognition =
-      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
       this.isBraveOrFallbackMode = true;
@@ -149,7 +145,7 @@ export class LiveTranscriptionService {
         this.onStatusCallback?.(true);
       };
 
-      recognition.onresult = (event: any) => {
+      recognition.onresult = (event) => {
         for (let i = event.resultIndex; i < event.results.length; ++i) {
           const result = event.results[i];
           const transcript = result[0]?.transcript?.trim();
@@ -169,7 +165,7 @@ export class LiveTranscriptionService {
         }
       };
 
-      recognition.onerror = (event: any) => {
+      recognition.onerror = (event) => {
         // 'no-speech' or 'audio-capture' are benign in continuous mode
         if (event.error === 'no-speech') {
           return;
@@ -204,7 +200,7 @@ export class LiveTranscriptionService {
             if (this.isDesiredListening && !this.isActuallyListening && !this.isBraveOrFallbackMode) {
               try {
                 this.recognition?.start();
-              } catch (e) {
+              } catch {
                 // Ignore invalid state
               }
             }
@@ -257,7 +253,7 @@ export class LiveTranscriptionService {
     if (!this.isActuallyListening) {
       try {
         this.recognition.start();
-      } catch (e) {
+      } catch {
         // Can throw if already starting
       }
     }
@@ -283,7 +279,7 @@ export class LiveTranscriptionService {
     if (this.recognition && this.isActuallyListening) {
       try {
         this.recognition.stop();
-      } catch (e) {}
+      } catch {}
     }
     this.isActuallyListening = false;
     this.onStatusCallback?.(false);

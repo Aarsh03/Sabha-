@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState, memo } from 'react';
+import Image from 'next/image';
 import { Participant } from '@/lib/types';
 import { AudioActivityDetector } from '@/lib/audio';
 import {
@@ -13,7 +14,6 @@ import {
   MoreVertical,
   VolumeX,
   UserX,
-  Maximize2,
   ShieldCheck,
   ShieldX,
 } from 'lucide-react';
@@ -31,7 +31,7 @@ interface VideoTileProps {
   onKickParticipant?: (id: string) => void;
 }
 
-export function VideoTile({
+function VideoTileComponent({
   participant,
   stream,
   isLocal,
@@ -44,13 +44,11 @@ export function VideoTile({
   onKickParticipant,
 }: VideoTileProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speaking, setSpeaking] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [imageError, setImageError] = useState(false);
-
-  useEffect(() => {
-    setImageError(false);
-  }, [participant.photoURL]);
+  // Track which URL failed to load so a new photoURL automatically gets a fresh attempt
+  const [failedPhotoURL, setFailedPhotoURL] = useState<string | null>(null);
+  const imageError = failedPhotoURL !== null && failedPhotoURL === participant.photoURL;
 
   // Check if participant has a live video track
   // For local user: strictly respect the camera toggle state
@@ -88,19 +86,18 @@ export function VideoTile({
 
   // Active speaker detection
   useEffect(() => {
-    if (!stream || !participant.audioEnabled) {
-      setIsSpeaking(false);
-      return;
-    }
+    if (!stream || !participant.audioEnabled) return;
 
-    const detector = new AudioActivityDetector(stream, (speaking) => {
-      setIsSpeaking(speaking);
+    const detector = new AudioActivityDetector(stream, (isSpeakingNow) => {
+      setSpeaking(isSpeakingNow);
     });
 
     return () => {
       detector.destroy();
+      setSpeaking(false);
     };
   }, [stream, participant.audioEnabled]);
+  const isSpeaking = speaking && Boolean(stream && participant.audioEnabled);
 
   const initials = participant.name
     ? participant.name
@@ -157,10 +154,13 @@ export function VideoTile({
         <div className="flex flex-col items-center justify-center p-4 select-none">
           <div className="relative flex items-center justify-center">
             {participant.photoURL && !imageError ? (
-              <img
+              <Image
                 src={participant.photoURL}
+                width={96}
+                height={96}
+                unoptimized
                 alt={participant.name}
-                onError={() => setImageError(true)}
+                onError={() => setFailedPhotoURL(participant.photoURL ?? null)}
                 referrerPolicy="no-referrer"
                 className="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover ring-4 ring-slate-800 shadow-xl"
               />
@@ -306,3 +306,5 @@ export function VideoTile({
     </div>
   );
 }
+
+export const VideoTile = memo(VideoTileComponent);

@@ -9,7 +9,7 @@
  * 3. 0ms Latency on Cached Common Phrases.
  */
 
-export interface SupportedLanguage {
+interface SupportedLanguage {
   code: string;
   name: string;
   nativeName: string;
@@ -52,12 +52,12 @@ export function isHindiText(text: string): boolean {
   return /[\u0900-\u097F]/.test(text);
 }
 
-function parseGoogleTranslationResponse(data: any): string {
+function parseGoogleTranslationResponse(data: unknown): string {
   if (!data) return '';
   if (Array.isArray(data)) {
     if (Array.isArray(data[0])) {
       return data
-        .map((item: any) => (Array.isArray(item) ? item[0] : item))
+        .map((item: unknown) => (Array.isArray(item) ? item[0] : item))
         .filter(Boolean)
         .join(' ')
         .trim();
@@ -118,23 +118,7 @@ export async function translateText(text: string, fromLang: string, toLang: stri
   return trimmed;
 }
 
-/**
- * Backwards-compatible helper: Translates Hindi text into English.
- */
-export async function translateHindiToEnglish(text: string): Promise<string> {
-  if (!isHindiText(text)) return text;
-  return translateText(text, 'hi', 'en');
-}
-
-/**
- * Backwards-compatible helper: Translates English text into Hindi.
- */
-export async function translateEnglishToHindi(text: string): Promise<string> {
-  if (isHindiText(text)) return text;
-  return translateText(text, 'en', 'hi');
-}
-
-export interface FormattedCaptionResult {
+interface FormattedCaptionResult {
   primaryText: string;
   secondaryText?: string;
   badgeLabel?: string;

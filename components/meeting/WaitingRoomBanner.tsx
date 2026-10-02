@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import { Users, Check, X } from 'lucide-react';
 import { WaitingParticipant } from '@/lib/types';
 
@@ -28,7 +28,7 @@ export function WaitingRoomBanner({
 
     if (waitingList.length > prevCountRef.current) {
       try {
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (AudioContextClass) {
           const ctx = new AudioContextClass();
           audioCtx = ctx;

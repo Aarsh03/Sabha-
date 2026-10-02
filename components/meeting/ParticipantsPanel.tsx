@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
 import { Participant, WaitingParticipant } from '@/lib/types';
+import Image from 'next/image';
 import {
   X,
   Users,
@@ -16,7 +16,6 @@ import {
   Lock,
   Unlock,
   UserPlus,
-  Check,
   ShieldCheck,
   ShieldX,
 } from 'lucide-react';
@@ -202,8 +201,11 @@ export function ParticipantsPanel({
               {/* Left: Avatar & Name */}
               <div className="flex items-center gap-3 min-w-0 pr-2">
                 {p.photoURL ? (
-                  <img
+                  <Image
                     src={p.photoURL}
+                    width={32}
+                    height={32}
+                    unoptimized
                     alt={p.name}
                     className="w-8 h-8 rounded-full object-cover ring-1 ring-slate-700"
                   />

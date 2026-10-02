@@ -10,8 +10,6 @@
   },
   "dependencies": {
     "@google/genai": "^2.24.0",
-    "@livekit/components-react": "^2.9.24",
-    "@livekit/components-styles": "^1.2.0",
     "canvas-confetti": "^1.9.4",
     "firebase": "^12.18.0",
     "livekit-client": "^2.22.2",

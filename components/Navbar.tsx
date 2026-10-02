@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/lib/authContext';
@@ -47,8 +48,11 @@ export function Navbar() {
                 className="flex items-center gap-2 p-1.5 rounded-xl hover:bg-slate-800/60 border border-slate-700/60 transition"
               >
                 {user.photoURL ? (
-                  <img
+                  <Image
                     src={user.photoURL}
+                    width={32}
+                    height={32}
+                    unoptimized
                     alt={user.displayName}
                     className="w-8 h-8 rounded-lg object-cover ring-1 ring-amber-500/50"
                   />

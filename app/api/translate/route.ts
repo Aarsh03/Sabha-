@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { ErrorLike } from '@/lib/types';
 
 const serverTranslationCache = new Map<string, string>();
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
         if (Array.isArray(data)) {
           if (Array.isArray(data[0])) {
             translatedText = data
-              .map((item: any) => (Array.isArray(item) ? item[0] : item))
+              .map((item: unknown) => (Array.isArray(item) ? item[0] : item))
               .filter(Boolean)
               .join(' ')
               .trim();
@@ -55,10 +56,10 @@ export async function POST(req: NextRequest) {
 
     // Default to original text if translation fails
     return NextResponse.json({ translation: trimmed });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Translate route error:', error);
     return NextResponse.json(
-      { error: error?.message || 'Internal translation error' },
+      { error: (error as ErrorLike)?.message || 'Internal translation error' },
       { status: 500 }
     );
   }

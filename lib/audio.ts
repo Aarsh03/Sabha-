@@ -25,7 +25,7 @@ export class AudioActivityDetector {
       const audioTracks = stream.getAudioTracks();
       if (audioTracks.length === 0) return;
 
-      const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       if (!AudioContextClass) return;
 
       this.audioContext = new AudioContextClass();
