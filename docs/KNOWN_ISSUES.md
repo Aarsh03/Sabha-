@@ -40,10 +40,14 @@ The following files and dependencies are tracked:
   - **Location:** `lib/translation.ts`, `components/meeting/MeetingControls.tsx`, `components/meeting/MeetingRoom.tsx`, `app/api/translate/route.ts`
   - **Details:** 1) In non-dual modes (e.g. 'English Only', 'Marathi', etc.), captions previously included Hindi secondary text due to returning original text as secondary. 2) Source language was previously hardcoded to Hindi/English, causing non-Devanagari spoken languages (Telugu, Tamil, Marathi, German, French, etc.) to not convert properly. 3) Stale closures in `MeetingRoom` `init()` prevented Chrome from updating caption preferences and delayed incoming captions behind async translation promises.
   - **Status:** *(Resolved: 1) Eliminated Hindi secondary text from all non-dual languages (English Only shows pure English, Hindi Only shows pure Hindi, regional/global show pure target language; Dual displays stacked). 2) Integrated universal `autodetect` across client and server routes to automatically convert ANY spoken language into the user's chosen target language. 3) Implemented `captionLanguageRef` and `handleAppendTranscriptItemRef` with instant 0ms unblocked rendering so Chrome and Safari receive and display captions with zero delay).*
-- **Brave Browser Privacy Blocking of Google Web Speech API:**
+- [x] **Brave Browser Privacy Blocking of Google Web Speech API:**
   - **Location:** `components/meeting/MeetingRoom.tsx`, `lib/transcriptionService.ts`
   - **Details:** Modern Brave desktop releases removed the Google Speech toggle completely from `brave://settings/system` for strict privacy, and browser security sandboxes block webpages from navigating to internal `brave://` protocols. This caused confusion when an earlier banner told users to visit `brave://settings/system`.
   - **Status:** *(Resolved: Updated Brave notice to accurately inform users that Brave disables speech-to-text for privacy while full 2-way WebRTC audio/video and viewing incoming live subtitles works 100%. Replaced the unworkable internal link with a 1-click 'Copy Link for Chrome/Edge' button and a 'Got it' dismiss button).*
+- [x] **Missing Final-Minute Sentences in Meeting Summaries & Transcripts:**
+  - **Location:** `components/meeting/MeetingRoom.tsx`, `lib/roomService.ts`, `lib/webrtc.ts`
+  - **Details:** Ending a meeting immediately triggered summary generation while participants were still speaking concluding remarks or while speech recognition buffers were pending finalization. Remote peers did not flush their interim buffers on host disconnect.
+  - **Status:** *(Resolved: Implemented a 60-second concluding buffer modal with a live countdown, speech syncing progress bar, and instant skip button. Added a `meeting-concluding` WebRTC/LiveKit broadcast instructing all attendees to flush interim buffers immediately, persisted all transcript lines in Firestore `rooms/{roomId}/transcripts`, and merged all Firestore records prior to Gemini AI summarization and email dispatch).*
 
 ---
 

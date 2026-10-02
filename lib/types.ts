@@ -81,7 +81,7 @@ export interface ReactionItem {
 export interface SignalData {
   from: string;
   to: string;
-  type: 'offer' | 'answer' | 'candidate' | 'mute-command' | 'kick-command' | 'whiteboard' | 'participant-update' | 'transcript-chunk';
+  type: 'offer' | 'answer' | 'candidate' | 'mute-command' | 'kick-command' | 'whiteboard' | 'participant-update' | 'transcript-chunk' | 'meeting-concluding';
   payload: any;
   timestamp: number;
 }

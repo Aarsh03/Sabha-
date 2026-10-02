@@ -21,6 +21,8 @@ import {
   updateHostPresence,
   updateParticipantRole,
   registerParticipant,
+  saveRoomTranscriptItem,
+  fetchRoomTranscripts,
 } from '@/lib/roomService';
 import { isHindiText, formatCaptionForUserPreference } from '@/lib/translation';
 import { useAuth } from '@/lib/authContext';
@@ -49,6 +51,8 @@ import {
   Maximize,
   Minimize,
   Lock,
+  Sparkles,
+  Loader2,
 } from 'lucide-react';
 
 interface MeetingRoomProps {
@@ -129,6 +133,21 @@ export function MeetingRoom({
     captionLanguageRef.current = captionLanguage;
   }, [captionLanguage]);
 
+  // 60-Second Meeting Concluding Wrap-up State
+  const [isConcludingMeeting, setIsConcludingMeeting] = useState<boolean>(false);
+  const [isMeetingConcludingByHost, setIsMeetingConcludingByHost] = useState<boolean>(false);
+  const [concludingSecondsRemaining, setConcludingSecondsRemaining] = useState<number>(60);
+  const [isExecutingFinalEnd, setIsExecutingFinalEnd] = useState<boolean>(false);
+  const concludingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (concludingTimerRef.current) {
+        clearInterval(concludingTimerRef.current);
+      }
+    };
+  }, []);
+
   const [latestLiveCaption, setLatestLiveCaption] = useState<{
     senderName: string;
     text: string;
@@ -174,6 +193,7 @@ export function MeetingRoom({
     if (item.isFinal) {
       transcriptRef.current.push(item);
       setTranscript((prev) => [...prev, item]);
+      saveRoomTranscriptItem(roomId, item).catch(() => {});
     }
   };
 
@@ -326,6 +346,23 @@ export function MeetingRoom({
                 setIncomingDrawEvent(payload.event);
               } else if (payload?.type === 'transcript-chunk' && payload.item) {
                 handleAppendTranscriptItemRef.current(payload.item);
+              } else if (payload?.type === 'meeting-concluding') {
+                setIsMeetingConcludingByHost(true);
+                if (transcriptionServiceRef.current) {
+                  const flushed = transcriptionServiceRef.current.flushInterim();
+                  if (flushed && flushed.length > 0) {
+                    const flushedItem: TranscriptItem = {
+                      id: `${localParticipant.id}_${Date.now()}_conclude_flush`,
+                      senderId: localParticipant.id,
+                      senderName: localParticipant.name || 'You',
+                      text: flushed,
+                      timestamp: Date.now(),
+                      isFinal: true,
+                    };
+                    saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
+                    liveKitManagerRef.current?.sendData({ type: 'transcript-chunk', item: flushedItem });
+                  }
+                }
               }
             };
 
@@ -465,6 +502,25 @@ export function MeetingRoom({
           handleAppendTranscriptItemRef.current(item);
         };
 
+        manager.onMeetingConcluding = () => {
+          setIsMeetingConcludingByHost(true);
+          if (transcriptionServiceRef.current) {
+            const flushed = transcriptionServiceRef.current.flushInterim();
+            if (flushed && flushed.length > 0) {
+              const flushedItem: TranscriptItem = {
+                id: `${localParticipant.id}_${Date.now()}_conclude_flush`,
+                senderId: localParticipant.id,
+                senderName: localParticipant.name || 'You',
+                text: flushed,
+                timestamp: Date.now(),
+                isFinal: true,
+              };
+              saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
+              manager.sendTranscriptItem(flushedItem);
+            }
+          }
+        };
+
         await manager.joinRoom();
       }
     }
@@ -592,6 +648,7 @@ export function MeetingRoom({
       if (isFinal) {
         transcriptRef.current.push(itemToBroadcast);
         setTranscript((prev) => [...prev, itemToBroadcast]);
+        saveRoomTranscriptItem(roomId, itemToBroadcast).catch(() => {});
       }
 
       // 3. Format local caption according to user's chosen target language
@@ -1207,45 +1264,100 @@ export function MeetingRoom({
     await admitAllParticipants(roomId, participantIds);
   };
 
-  const handleEndMeetingForAll = async () => {
+  const handleInitiateEndMeeting = async () => {
     setIsLeaveModalOpen(false);
-    updateHostPresence(roomId, false).catch(() => {});
+    setIsConcludingMeeting(true);
+    setConcludingSecondsRemaining(60);
 
-    // 0. Flush any pending un-finalized speech so the concluding words are never lost
+    // 1. Immediately flush host's local interim speech buffer and save
     if (transcriptionServiceRef.current) {
       const flushed = transcriptionServiceRef.current.flushInterim();
       if (flushed && flushed.length > 0) {
         const flushedItem: TranscriptItem = {
-          id: `${localParticipant.id}_${Date.now()}_end_flush`,
+          id: `${localParticipant.id}_${Date.now()}_host_conclude_flush`,
           senderId: localParticipant.id,
           senderName: localParticipant.name || 'You',
           text: flushed,
           timestamp: Date.now(),
           isFinal: true,
         };
-        try {
-          const formatted = await formatCaptionForUserPreference(flushed, captionLanguage);
-          flushedItem.translation = formatted.secondaryText;
-        } catch {}
         transcriptRef.current.push(flushedItem);
+        setTranscript((prev) => [...prev, flushedItem]);
+        saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
       }
     }
 
-    // 1. Notify server with endForAll flag (closes LiveKit room and purges Firestore room participants)
-    try {
-      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
-        const payload = JSON.stringify({ roomId, participantId: localParticipant.id, endForAll: true });
-        navigator.sendBeacon('/api/room/leave', new Blob([payload], { type: 'application/json' }));
-      } else {
-        fetch('/api/room/leave', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ roomId, participantId: localParticipant.id, endForAll: true }),
-        }).catch(() => {});
-      }
-    } catch {}
+    // 2. Broadcast 'meeting-concluding' signal to remote participants
+    const concludingPayload = {
+      type: 'meeting-concluding',
+      remainingSeconds: 60,
+    };
+    if (liveKitManagerRef.current) {
+      liveKitManagerRef.current.sendData(concludingPayload);
+    }
+    if (rtcManagerRef.current) {
+      rtcManagerRef.current.sendConcludingSignal(60);
+    }
 
-    // 1b. Dispatch AI Meeting Summarization & Zoho Email in background
+    // 3. Start 60-second countdown timer
+    if (concludingTimerRef.current) clearInterval(concludingTimerRef.current);
+    concludingTimerRef.current = setInterval(() => {
+      setConcludingSecondsRemaining((prev) => {
+        if (prev <= 1) {
+          if (concludingTimerRef.current) clearInterval(concludingTimerRef.current);
+          handleExecuteFinalMeetingEnd();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleExecuteFinalMeetingEnd = async () => {
+    if (concludingTimerRef.current) {
+      clearInterval(concludingTimerRef.current);
+      concludingTimerRef.current = null;
+    }
+    setIsExecutingFinalEnd(true);
+    updateHostPresence(roomId, false).catch(() => {});
+
+    // 1. Final flush of host speech
+    if (transcriptionServiceRef.current) {
+      const flushed = transcriptionServiceRef.current.flushInterim();
+      if (flushed && flushed.length > 0) {
+        const flushedItem: TranscriptItem = {
+          id: `${localParticipant.id}_${Date.now()}_final_flush`,
+          senderId: localParticipant.id,
+          senderName: localParticipant.name || 'You',
+          text: flushed,
+          timestamp: Date.now(),
+          isFinal: true,
+        };
+        transcriptRef.current.push(flushedItem);
+        setTranscript((prev) => [...prev, flushedItem]);
+        saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
+      }
+    }
+
+    // 2. Fetch all transcripts from Firestore to ensure NO speech was missed from any participant
+    let completeTranscript = [...transcriptRef.current];
+    try {
+      const firestoreTranscripts = await fetchRoomTranscripts(roomId);
+      if (firestoreTranscripts && firestoreTranscripts.length > 0) {
+        const existingIds = new Set(completeTranscript.map((t) => t.id));
+        for (const item of firestoreTranscripts) {
+          if (!existingIds.has(item.id)) {
+            completeTranscript.push(item);
+            existingIds.add(item.id);
+          }
+        }
+        completeTranscript.sort((a, b) => a.timestamp - b.timestamp);
+      }
+    } catch (e) {
+      console.warn('Could not merge Firestore transcripts:', e);
+    }
+
+    // 3. Dispatch AI Meeting Summarization & Email Dispatch with 100% complete transcripts
     try {
       const allParticipants = [localParticipant, ...remoteParticipants];
       const summaryPayload = JSON.stringify({
@@ -1259,10 +1371,10 @@ export function MeetingRoom({
           isHost: p.isHost,
           isCoHost: p.isCoHost,
         })),
-        transcript: transcriptRef.current,
+        transcript: completeTranscript,
       });
 
-      fetch('/api/meeting/summarize-and-email', {
+      await fetch('/api/meeting/summarize-and-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: summaryPayload,
@@ -1272,18 +1384,34 @@ export function MeetingRoom({
       console.warn('Failed to dispatch meeting summarization:', err);
     }
 
-    // 2. Broadcast kick/end command to all peers
+    // 4. Notify server with endForAll flag
     try {
+      if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
+        const payload = JSON.stringify({ roomId, participantId: localParticipant.id, endForAll: true });
+        navigator.sendBeacon('/api/room/leave', new Blob([payload], { type: 'application/json' }));
+      } else {
+        await fetch('/api/room/leave', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ roomId, participantId: localParticipant.id, endForAll: true }),
+        }).catch(() => {});
+      }
+    } catch {}
+
+    // 5. Broadcast kick/end command to all peers
+    try {
+      if (liveKitManagerRef.current) {
+        liveKitManagerRef.current.sendData({ type: 'end-meeting', reason: 'meeting-ended' });
+      }
       await rtcManagerRef.current?.sendKickCommand('broadcast', 'meeting-ended');
       for (const p of remoteParticipants) {
         rtcManagerRef.current?.sendKickCommand(p.id, 'meeting-ended').catch(() => {});
       }
     } catch {}
 
-    // Grace period for network payload buffering before tear down
-    await new Promise((resolve) => setTimeout(resolve, 350));
+    await new Promise((resolve) => setTimeout(resolve, 400));
 
-    // 3. Disconnect local engines and navigate home
+    // 6. Disconnect local engines and navigate home
     if (liveKitManagerRef.current) {
       await liveKitManagerRef.current.disconnect().catch(() => {});
     }
@@ -1296,6 +1424,29 @@ export function MeetingRoom({
     if (localParticipant.isHost) {
       updateHostPresence(roomId, false).catch(() => {});
     }
+
+    // Flush attendee's speech before leaving so concluding remarks are recorded
+    if (transcriptionServiceRef.current) {
+      const flushed = transcriptionServiceRef.current.flushInterim();
+      if (flushed && flushed.length > 0) {
+        const flushedItem: TranscriptItem = {
+          id: `${localParticipant.id}_${Date.now()}_leave_flush`,
+          senderId: localParticipant.id,
+          senderName: localParticipant.name || 'You',
+          text: flushed,
+          timestamp: Date.now(),
+          isFinal: true,
+        };
+        saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
+        if (liveKitManagerRef.current) {
+          liveKitManagerRef.current.sendData({ type: 'transcript-chunk', item: flushedItem });
+        }
+        if (rtcManagerRef.current) {
+          rtcManagerRef.current.sendTranscriptItem(flushedItem);
+        }
+      }
+    }
+
     if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
       const payload = JSON.stringify({ roomId, participantId: localParticipant.id });
       navigator.sendBeacon('/api/room/leave', new Blob([payload], { type: 'application/json' }));
@@ -1735,7 +1886,7 @@ export function MeetingRoom({
         onClose={() => setIsSecurityOpen(false)}
         roomSettings={roomSettings}
         onUpdateSettings={handleUpdateSettings}
-        onEndMeetingForAll={handleEndMeetingForAll}
+        onEndMeetingForAll={handleInitiateEndMeeting}
         isHost={localParticipant.isHost}
       />
 
@@ -1761,8 +1912,106 @@ export function MeetingRoom({
         onClose={() => setIsLeaveModalOpen(false)}
         isHost={localParticipant.isHost}
         onLeaveMeeting={handleLeaveMeeting}
-        onEndMeetingForAll={handleEndMeetingForAll}
+        onEndMeetingForAll={handleInitiateEndMeeting}
       />
+
+      {/* Host 60-Second Meeting Wrap-up & AI Summarization Countdown Modal */}
+      {isConcludingMeeting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200 select-none">
+          <div className="relative w-full max-w-lg bg-slate-900 border border-amber-500/40 rounded-3xl shadow-2xl p-6 sm:p-8 text-slate-100 overflow-hidden text-center">
+            {/* Background ambient glow */}
+            <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="relative z-10">
+              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4 shadow-lg shadow-amber-500/10">
+                <Sparkles className="w-7 h-7 animate-pulse text-amber-400" />
+              </div>
+
+              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-tight">
+                Wrapping Up Sabha Assembly
+              </h2>
+
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-6 max-w-md mx-auto">
+                Waiting 1 minute for all speakers to conclude their final remarks. Sabha AI is syncing all speech buffers to ensure 100% of concluding sentences are captured before emailing notes.
+              </p>
+
+              {/* Countdown Progress Display */}
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 mb-6 shadow-inner">
+                <div className="flex items-center justify-between text-xs text-slate-400 mb-2 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4 text-amber-400" />
+                    <span>Auto-dispatching in:</span>
+                  </span>
+                  <span className="font-mono text-base font-bold text-amber-300">
+                    {concludingSecondsRemaining}s
+                  </span>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
+                  <div
+                    className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-1000 ease-linear rounded-full"
+                    style={{ width: `${(concludingSecondsRemaining / 60) * 100}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
+                  <span>Captured Remarks:</span>
+                  <span className="text-emerald-400 font-bold font-mono">
+                    {transcript.length} sentences
+                  </span>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <button
+                  onClick={handleExecuteFinalMeetingEnd}
+                  disabled={isExecutingFinalEnd}
+                  className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm transition shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {isExecutingFinalEnd ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Generating Summary & Emailing Notes...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4" />
+                      <span>Send Summary & Conclude Now (Skip Wait)</span>
+                    </>
+                  )}
+                </button>
+
+                {!isExecutingFinalEnd && (
+                  <button
+                    onClick={() => {
+                      if (concludingTimerRef.current) clearInterval(concludingTimerRef.current);
+                      setIsConcludingMeeting(false);
+                    }}
+                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white font-medium text-xs transition cursor-pointer"
+                  >
+                    Resume Meeting / Cancel
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Remote Participant Wrapping Up Notice Banner */}
+      {isMeetingConcludingByHost && !localParticipant.isHost && (
+        <div className="absolute top-16 left-1/2 -translate-x-1/2 max-w-xl w-[92%] sm:w-auto px-4 py-2.5 rounded-xl bg-amber-950/90 border border-amber-500/60 backdrop-blur-md text-amber-200 text-xs flex items-center justify-between gap-3 shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5">
+            <span className="text-base">⏳</span>
+            <span className="leading-snug">
+              <strong>Meeting Concluding:</strong> The host is wrapping up this Sabha. Concluding remarks are being synced for the meeting notes & transcript email.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Floating Emoji Reactions Layer */}
       <ReactionsOverlay latestReaction={latestReaction} />

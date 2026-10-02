@@ -47,6 +47,7 @@ export class WebRTCManager {
   public onKicked: (reason?: string) => void = () => {};
   public onWhiteboardReceived: (event: any) => void = () => {};
   public onTranscriptReceived: (item: TranscriptItem) => void = () => {};
+  public onMeetingConcluding: () => void = () => {};
 
   // Cleanups
   private unsubParticipants: (() => void) | null = null;
@@ -431,6 +432,11 @@ export class WebRTCManager {
       return;
     }
 
+    if ((signal.type as any) === 'meeting-concluding') {
+      this.onMeetingConcluding();
+      return;
+    }
+
     if ((signal.type as any) === 'participant-update') {
       const updates = signal.payload as Partial<Participant> & { targetPeerId?: string };
       const targetId = updates.targetPeerId || fromPeerId;
@@ -596,6 +602,16 @@ export class WebRTCManager {
       to: 'broadcast',
       type: 'transcript-chunk' as any,
       payload: item,
+      timestamp: Date.now(),
+    });
+  }
+
+  public async sendConcludingSignal(remainingSeconds: number = 60) {
+    await this.sendSignal({
+      from: this.localParticipant.id,
+      to: 'broadcast',
+      type: 'meeting-concluding',
+      payload: { remainingSeconds },
       timestamp: Date.now(),
     });
   }

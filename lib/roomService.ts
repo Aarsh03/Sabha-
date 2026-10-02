@@ -7,12 +7,13 @@ import {
   deleteDoc,
   onSnapshot,
   addDoc,
+  getDocs,
   query,
   orderBy,
   limit,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from './firebase';
-import { ChatMessage, ReactionItem, RoomSettings, WaitingParticipant, Participant } from './types';
+import { ChatMessage, ReactionItem, RoomSettings, WaitingParticipant, Participant, TranscriptItem } from './types';
 
 export async function createRoom(
   roomId: string,
@@ -525,6 +526,45 @@ export async function registerParticipant(
       console.warn('Error registering participant in Firestore:', err);
     }
   }
+}
+
+/**
+ * Persist finalized transcript item to Firestore
+ */
+export async function saveRoomTranscriptItem(
+  roomId: string,
+  item: TranscriptItem
+): Promise<void> {
+  if (isFirebaseConfigured() && db && item && item.text) {
+    try {
+      const transcriptsCol = collection(db, `rooms/${roomId}/transcripts`);
+      await setDoc(doc(transcriptsCol, item.id), item, { merge: true });
+    } catch (err) {
+      console.warn('Error saving transcript to Firestore:', err);
+    }
+  }
+}
+
+/**
+ * Fetch all transcript items recorded for a room, ordered chronologically
+ */
+export async function fetchRoomTranscripts(
+  roomId: string
+): Promise<TranscriptItem[]> {
+  if (isFirebaseConfigured() && db) {
+    try {
+      const transcriptsCol = collection(db, `rooms/${roomId}/transcripts`);
+      const snapshot = await getDocs(transcriptsCol);
+      const items: TranscriptItem[] = [];
+      snapshot.forEach((d) => {
+        items.push(d.data() as TranscriptItem);
+      });
+      return items.sort((a, b) => a.timestamp - b.timestamp);
+    } catch (err) {
+      console.warn('Error fetching transcripts from Firestore:', err);
+    }
+  }
+  return [];
 }
 
 
