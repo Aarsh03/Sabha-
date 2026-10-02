@@ -22,7 +22,7 @@ import {
   updateParticipantRole,
   registerParticipant,
 } from '@/lib/roomService';
-import { isHindiText, translateHindiToEnglish, translateEnglishToHindi } from '@/lib/translation';
+import { isHindiText, formatCaptionForUserPreference } from '@/lib/translation';
 import { useAuth } from '@/lib/authContext';
 import { VideoGrid } from './VideoGrid';
 import { MeetingControls } from './MeetingControls';
@@ -128,12 +128,18 @@ export function MeetingRoom({
     senderName: string;
     text: string;
     translation?: string;
+    badgeLabel?: string;
   } | null>(null);
   const captionFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptionServiceRef = useRef<LiveTranscriptionService | null>(null);
 
-  const handleUpdateLiveCaption = (senderName: string, text: string, translation?: string) => {
-    setLatestLiveCaption({ senderName, text, translation });
+  const handleUpdateLiveCaption = (
+    senderName: string,
+    text: string,
+    translation?: string,
+    badgeLabel?: string
+  ) => {
+    setLatestLiveCaption({ senderName, text, translation, badgeLabel });
     if (captionFadeTimerRef.current) {
       clearTimeout(captionFadeTimerRef.current);
     }
@@ -143,7 +149,11 @@ export function MeetingRoom({
   };
 
   const handleAppendTranscriptItem = (item: TranscriptItem) => {
-    handleUpdateLiveCaption(item.senderName, item.text, item.translation);
+    formatCaptionForUserPreference(item.text, captionLanguage).then(
+      ({ primaryText, secondaryText, badgeLabel }) => {
+        handleUpdateLiveCaption(item.senderName, primaryText, secondaryText, badgeLabel);
+      }
+    );
     if (item.isFinal) {
       transcriptRef.current.push(item);
       setTranscript((prev) => [...prev, item]);
@@ -537,40 +547,15 @@ export function MeetingRoom({
         isFinal,
       };
 
-      // 1. If translation is already provided
-      if (translation && translation !== text) {
-        handleUpdateLiveCaption(localParticipant.name || 'You', text, translation);
-
-        if (isFinal) {
-          const itemWithTrans: TranscriptItem = {
-            ...baseItem,
-            translation,
-          };
-          transcriptRef.current.push(itemWithTrans);
-          setTranscript((prev) => [...prev, itemWithTrans]);
-
-          // Broadcast to peers via active media engine
-          if (isLiveKitSFU && liveKitManagerRef.current) {
-            liveKitManagerRef.current.sendData({
-              type: 'transcript-chunk',
-              item: itemWithTrans,
-            });
-          } else if (rtcManagerRef.current) {
-            rtcManagerRef.current.sendTranscriptItem(itemWithTrans);
-          }
-        }
-        return;
-      }
-
-      // 2. Hindi speech: provide instant English translation
-      if (isHindiText(text)) {
-        translateHindiToEnglish(text).then((trans) => {
-          handleUpdateLiveCaption(localParticipant.name || 'You', text, trans);
+      formatCaptionForUserPreference(text, captionLanguage).then(
+        ({ primaryText, secondaryText, badgeLabel }) => {
+          handleUpdateLiveCaption(localParticipant.name || 'You', primaryText, secondaryText, badgeLabel);
 
           if (isFinal) {
             const itemWithTrans: TranscriptItem = {
               ...baseItem,
-              translation: trans,
+              text,
+              translation: secondaryText || translation,
             };
             transcriptRef.current.push(itemWithTrans);
             setTranscript((prev) => [...prev, itemWithTrans]);
@@ -585,50 +570,8 @@ export function MeetingRoom({
               rtcManagerRef.current.sendTranscriptItem(itemWithTrans);
             }
           }
-        });
-      } else if (captionLanguage === 'dual') {
-        // 3. Spoken in English in Dual Mode: provide instant Hindi translation
-        translateEnglishToHindi(text).then((trans) => {
-          handleUpdateLiveCaption(localParticipant.name || 'You', text, trans);
-
-          if (isFinal) {
-            const itemWithTrans: TranscriptItem = {
-              ...baseItem,
-              translation: trans,
-            };
-            transcriptRef.current.push(itemWithTrans);
-            setTranscript((prev) => [...prev, itemWithTrans]);
-
-            // Broadcast to peers via active media engine
-            if (isLiveKitSFU && liveKitManagerRef.current) {
-              liveKitManagerRef.current.sendData({
-                type: 'transcript-chunk',
-                item: itemWithTrans,
-              });
-            } else if (rtcManagerRef.current) {
-              rtcManagerRef.current.sendTranscriptItem(itemWithTrans);
-            }
-          }
-        });
-      } else {
-        // 4. Single-language English mode
-        handleUpdateLiveCaption(localParticipant.name || 'You', text);
-
-        if (isFinal) {
-          transcriptRef.current.push(baseItem);
-          setTranscript((prev) => [...prev, baseItem]);
-
-          // Broadcast to peers via active media engine
-          if (isLiveKitSFU && liveKitManagerRef.current) {
-            liveKitManagerRef.current.sendData({
-              type: 'transcript-chunk',
-              item: baseItem,
-            });
-          } else if (rtcManagerRef.current) {
-            rtcManagerRef.current.sendTranscriptItem(baseItem);
-          }
         }
-      }
+      );
     });
 
     if (localParticipant.audioEnabled) {
@@ -1247,17 +1190,10 @@ export function MeetingRoom({
           timestamp: Date.now(),
           isFinal: true,
         };
-        if (isHindiText(flushed)) {
-          try {
-            const trans = await translateHindiToEnglish(flushed);
-            flushedItem.translation = trans;
-          } catch {}
-        } else if (captionLanguage === 'dual') {
-          try {
-            const trans = await translateEnglishToHindi(flushed);
-            flushedItem.translation = trans;
-          } catch {}
-        }
+        try {
+          const formatted = await formatCaptionForUserPreference(flushed, captionLanguage);
+          flushedItem.translation = formatted.secondaryText;
+        } catch {}
         transcriptRef.current.push(flushedItem);
       }
     }
@@ -1648,9 +1584,9 @@ export function MeetingRoom({
           <div className="absolute bottom-6 left-1/2 -translate-x-1/2 max-w-2xl px-5 py-3 rounded-2xl bg-slate-950/90 backdrop-blur-md border border-slate-700/80 text-center shadow-2xl pointer-events-none z-20 animate-in fade-in zoom-in-95 duration-150">
             <div className="flex items-center justify-center gap-2 mb-1">
               <span className="text-amber-400 font-bold text-xs">{latestLiveCaption.senderName}</span>
-              {latestLiveCaption.translation && latestLiveCaption.translation !== latestLiveCaption.text && (
+              {latestLiveCaption.badgeLabel && (
                 <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-bold rounded uppercase tracking-wider">
-                  {isHindiText(latestLiveCaption.text) ? 'English Translation' : 'हिन्दी अनुवाद'}
+                  {latestLiveCaption.badgeLabel}
                 </span>
               )}
             </div>

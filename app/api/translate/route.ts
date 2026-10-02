@@ -1,59 +1,45 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
 
+const serverTranslationCache = new Map<string, string>();
+
+/**
+ * Free translation proxy route for Sabha live subtitles.
+ * Runs 100% on free public gateways with server memory caching.
+ * Consumes ZERO Gemini API tokens so quota is preserved for meeting summaries.
+ */
 export async function POST(req: NextRequest) {
   try {
-    const { text, from = 'hi', to = 'en' } = await req.json();
+    const { text, from = 'autodetect', to = 'en' } = await req.json();
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Missing text parameter' }, { status: 400 });
     }
 
     const trimmed = text.trim();
-    if (!trimmed) {
-      return NextResponse.json({ translation: '' });
+    if (!trimmed || from === to) {
+      return NextResponse.json({ translation: trimmed });
     }
 
-    // 1. Try Gemini API
-    const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
-    if (geminiKey) {
-      try {
-        const ai = new GoogleGenAI({ apiKey: geminiKey });
-        const prompt = `You are a real-time conference translator. Translate this Hindi spoken statement directly to natural English. Output ONLY the English translation without preamble or quotes:\n\n${trimmed}`;
-
-        const modelsToTry = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
-        for (const model of modelsToTry) {
-          try {
-            const response = await ai.models.generateContent({
-              model,
-              contents: prompt,
-            });
-            const translated = response?.text?.trim();
-            if (translated) {
-              return NextResponse.json({ translation: translated });
-            }
-          } catch (modelErr) {
-            // Try next model
-          }
-        }
-      } catch (geminiErr) {
-        console.warn('Gemini translate error, falling back:', geminiErr);
-      }
+    const cacheKey = `${from}:${to}:${trimmed.toLowerCase()}`;
+    if (serverTranslationCache.has(cacheKey)) {
+      return NextResponse.json({ translation: serverTranslationCache.get(cacheKey)! });
     }
 
-    // 2. Free Translation Gateway Fallback
+    // Free Translation Gateway ($0 cost, 0 Gemini tokens)
     try {
       const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${from}|${to}`;
-      const res = await fetch(url);
+      const res = await fetch(url, { headers: { 'User-Agent': 'Sabha-Conference/1.0' } });
       if (res.ok) {
         const data = await res.json();
         const translated = data?.responseData?.translatedText;
         if (translated && typeof translated === 'string' && !translated.startsWith('MYMEMORY WARNING')) {
-          return NextResponse.json({ translation: translated.trim() });
+          const cleanResult = translated.trim();
+          serverTranslationCache.set(cacheKey, cleanResult);
+          return NextResponse.json({ translation: cleanResult });
         }
       }
-    } catch (fallbackErr) {
-      console.warn('MyMemory translation error:', fallbackErr);
+    } catch (gatewayErr) {
+      console.warn('MyMemory gateway notice:', gatewayErr);
     }
 
     // Default to original text if translation fails

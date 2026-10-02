@@ -16,7 +16,11 @@ import {
   PenTool,
   CircleDot,
   Captions,
+  Globe,
+  Check,
+  ChevronDown,
 } from 'lucide-react';
+import { SUPPORTED_LANGUAGES } from '@/lib/translation';
 
 interface MeetingControlsProps {
   isHost: boolean;
@@ -82,19 +86,22 @@ export function MeetingControls({
   onLeaveMeeting,
 }: MeetingControlsProps) {
   const [showReactionsMenu, setShowReactionsMenu] = useState(false);
+  const [showLanguageMenu, setShowLanguageMenu] = useState(false);
   const reactionsRef = useRef<HTMLDivElement>(null);
+  const languageMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
       if (reactionsRef.current && !reactionsRef.current.contains(e.target as Node)) {
         setShowReactionsMenu(false);
       }
+      if (languageMenuRef.current && !languageMenuRef.current.contains(e.target as Node)) {
+        setShowLanguageMenu(false);
+      }
     }
-    if (showReactionsMenu) {
-      document.addEventListener('mousedown', handleClickOutside);
-      return () => document.removeEventListener('mousedown', handleClickOutside);
-    }
-  }, [showReactionsMenu]);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const emojis = ['👍', '❤️', '👏', '😂', '🎉', '🚀'];
 
@@ -236,9 +243,9 @@ export function MeetingControls({
           <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">{isRecording ? 'Stop Rec' : 'Record'}</span>
         </button>
 
-        {/* Live Closed Captions (CC) & Hindi/English Language Switcher */}
+        {/* Live Closed Captions (CC) & Multi-Language Selector */}
         {onToggleCaptions && (
-          <div className="relative flex items-center justify-center">
+          <div className="relative flex items-center justify-center" ref={languageMenuRef}>
             <button
               onClick={onToggleCaptions}
               className={`flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl transition cursor-pointer ${
@@ -267,14 +274,121 @@ export function MeetingControls({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const nextLang = captionLanguage === 'dual' ? 'en-IN' : captionLanguage === 'en-IN' ? 'hi-IN' : 'dual';
-                  onChangeCaptionLanguage(nextLang);
+                  setShowLanguageMenu((prev) => !prev);
                 }}
-                className="absolute -top-1.5 -right-2 px-1.5 py-0.5 rounded-md bg-slate-900 border border-amber-500/60 text-[8px] font-black text-amber-300 tracking-wider hover:bg-slate-800 transition cursor-pointer shadow-lg z-10 whitespace-nowrap"
-                title={`Caption Mode: ${captionLanguage === 'dual' ? 'Dual (हिन्दी + English simultaneously)' : captionLanguage === 'en-IN' ? 'English only' : 'हिन्दी only'}. Click to switch.`}
+                className="absolute -top-1.5 -right-2 px-1.5 py-0.5 rounded-md bg-slate-900 border border-amber-500/60 text-[8px] font-black text-amber-300 tracking-wider hover:bg-slate-800 transition cursor-pointer shadow-lg z-10 flex items-center gap-0.5 whitespace-nowrap"
+                title="Change Subtitle Language. Click to choose Hindi, English, Marathi, Tamil, etc."
               >
-                {captionLanguage === 'dual' ? 'हिन्दी + EN' : captionLanguage === 'en-IN' ? 'EN' : 'हिन्दी'}
+                <span>
+                  {captionLanguage === 'dual'
+                    ? 'हिन्दी + EN'
+                    : captionLanguage === 'hindi_only'
+                    ? 'हिन्दी'
+                    : captionLanguage === 'english_only'
+                    ? 'EN'
+                    : SUPPORTED_LANGUAGES.find((l) => l.code === captionLanguage)?.nativeName || captionLanguage.toUpperCase()}
+                </span>
+                <ChevronDown className="w-2.5 h-2.5 opacity-70" />
               </button>
+            )}
+
+            {/* Language Selection Popover */}
+            {showLanguageMenu && isCaptionsOn && (
+              <div className="absolute bottom-16 -right-12 sm:right-0 w-72 bg-slate-900/95 backdrop-blur-xl border border-slate-700/80 rounded-2xl p-3 shadow-2xl z-50 animate-in fade-in zoom-in-95 duration-150 max-h-96 overflow-y-auto">
+                <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-amber-400">
+                    <Globe className="w-3.5 h-3.5" />
+                    <span>Subtitle Display Language</span>
+                  </div>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
+                    $0 Free
+                  </span>
+                </div>
+                <p className="text-[10px] text-slate-400 mb-2.5 leading-relaxed">
+                  Translate all incoming speech into your personal preferred language:
+                </p>
+
+                {/* Quick Presets */}
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Core Presets
+                </div>
+                <div className="space-y-1 mb-3">
+                  {SUPPORTED_LANGUAGES.filter((l) => l.region === 'preset').map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        onChangeCaptionLanguage?.(lang.code);
+                        setShowLanguageMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                        captionLanguage === lang.code
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{lang.nativeName}</span>
+                        <span className="text-[10px] text-slate-400">({lang.name})</span>
+                      </div>
+                      {captionLanguage === lang.code && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Indian Languages */}
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Indian Regional Languages
+                </div>
+                <div className="space-y-1 mb-3">
+                  {SUPPORTED_LANGUAGES.filter((l) => l.region === 'indian').map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        onChangeCaptionLanguage?.(lang.code);
+                        setShowLanguageMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                        captionLanguage === lang.code
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{lang.nativeName}</span>
+                        <span className="text-[10px] text-slate-400">({lang.name})</span>
+                      </div>
+                      {captionLanguage === lang.code && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Global Languages */}
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">
+                  Global Languages
+                </div>
+                <div className="space-y-1">
+                  {SUPPORTED_LANGUAGES.filter((l) => l.region === 'global').map((lang) => (
+                    <button
+                      key={lang.code}
+                      onClick={() => {
+                        onChangeCaptionLanguage?.(lang.code);
+                        setShowLanguageMenu(false);
+                      }}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs font-medium transition cursor-pointer ${
+                        captionLanguage === lang.code
+                          ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                          : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span>{lang.nativeName}</span>
+                        <span className="text-[10px] text-slate-400">({lang.name})</span>
+                      </div>
+                      {captionLanguage === lang.code && <Check className="w-3.5 h-3.5 text-amber-400" />}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}

@@ -208,7 +208,13 @@ Please produce a concise, professional, beautifully formatted summary in Markdow
 Ensure clarity, professional tone, and zero fluff.`;
 
         let result;
-        const modelsToTry = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+        const modelsToTry = [
+          'gemini-2.5-flash',
+          'gemini-2.5-flash-lite',
+          'gemini-2.0-flash',
+          'gemini-1.5-flash',
+          'gemini-flash-latest',
+        ];
         for (const model of modelsToTry) {
           try {
             result = await ai.models.generateContent({
@@ -227,8 +233,23 @@ Ensure clarity, professional tone, and zero fluff.`;
       }
     }
 
-    // Fallback summary if Gemini is offline or transcript empty
+    // High-quality structured fallback summary if Gemini hits 429 quota or is offline
     if (!aiSummaryMarkdown) {
+      const speakerContributions: Record<string, string[]> = {};
+      transcript.forEach((t) => {
+        const name = t.senderName || 'Participant';
+        if (!speakerContributions[name]) speakerContributions[name] = [];
+        const content = t.translation && t.translation !== t.text ? `${t.text} (${t.translation})` : t.text;
+        if (content && content.length > 3) {
+          speakerContributions[name].push(content);
+        }
+      });
+
+      const discussionPoints = Object.entries(speakerContributions).map(([name, quotes]) => {
+        const highlights = quotes.slice(0, 3).map((q) => `"${q}"`).join('; ');
+        return `- **${name}**: Discussed ${highlights || 'topics during the call'}.`;
+      });
+
       aiSummaryMarkdown = `# 📋 Sabha Meeting Summary
 **Meeting**: ${meetingTitle}
 **Date**: ${dateFormatted}
@@ -236,18 +257,20 @@ Ensure clarity, professional tone, and zero fluff.`;
 **Attendees**: ${participantNames || 'Attendees'}
 
 ## 🎯 Executive Overview
-The Sabha assembly concluded successfully after ${durationMinutes} minutes. ${
-        transcript.length > 0
-          ? `A total of ${transcript.length} speech segments were captured.`
-          : 'No spoken speech transcript was recorded during this session.'
-      }
+The Sabha assembly convened on ${dateFormatted} and concluded after ${durationMinutes} minutes with ${
+        transcript.length
+      } dialogue segments captured across ${Object.keys(speakerContributions).length || 1} active speaker(s). 
 
-## 💡 Key Discussion Points & Decisions
-- Meeting convened with participants: ${participantNames || 'Members of Sabha'}.
-- Session ended by host or concluded naturally.
+## 💡 Key Discussion Points & Dialogue Highlights
+${
+  discussionPoints.length > 0
+    ? discussionPoints.join('\n')
+    : `- Meeting convened with participants: ${participantNames || 'Members of Sabha'}.\n- Session completed successfully.`
+}
 
 ## ⚡ Action Items & Next Steps
-- Review notes and follow up on any offline discussions.`;
+- **All Attendees**: Review the attached meeting transcript and follow up on discussed points.
+- **Host**: Coordinate next steps and schedule any follow-up sessions as needed.`;
     }
 
     const summaryHtmlContent = markdownToEmailHtml(aiSummaryMarkdown);

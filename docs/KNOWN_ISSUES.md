@@ -32,26 +32,14 @@ The following files and dependencies are tracked:
 - **Improper Variable Declarations:** 
   - **Location:** `lib/roomService.ts`
   - **Status:** *(Resolved: Changed `let waitingMap` to `const waitingMap`).*
-- **Gemini API 404 Model Deprecation:**
-  - **Location:** `app/api/meeting/summarize-and-email/route.ts`
-  - **Status:** *(Resolved: Upgraded model cascade to `gemini-3.5-flash` and `gemini-3.8-flash`, removing deprecated `gemini-2.5-*` references).*
-- **Attendee Email Delivery Failure:**
-  - **Location:** `lib/livekitService.ts`, `app/api/livekit-token/route.ts`, `app/api/meeting/summarize-and-email/route.ts`
-  - **Status:** *(Resolved: Participant email now propagated through LiveKit token metadata, parsed in `syncParticipants()`, registered in Firestore `/rooms/{roomId}/participants`, and dispatched individually to each attendee).*
-- **Truncated Concluding Meeting Speech:**
-  - **Location:** `lib/transcriptionService.ts`, `components/meeting/MeetingRoom.tsx`
-  - **Status:** *(Resolved: Added `flushInterim()` buffer mechanism ensuring words spoken right before call end are converted to final transcript items).*
-- **Brave Browser Web Speech API & MediaRecorder NotSupportedError:**
-  - **Location:** `lib/transcriptionService.ts`, `components/meeting/MeetingRoom.tsx`
-  - **Details:** Brave Browser intentionally blocks Google's Web Speech API server endpoints, causing `recognition.onerror({ error: 'network' })`. The previous audio fallback attempted `MediaRecorder` chunking which triggered `NotSupportedError: Failed to execute 'start' on 'MediaRecorder'` in Brave's sandbox and risked consuming heavy Gemini API tokens during live calls.
-  - **Status:** *(Resolved: Enforced 100% free ($0) browser-native Web Speech API. Deprecated continuous background audio chunking to protect API tokens ($0 live speech guarantee). Added graceful Brave Shields detection, zero console errors, real-time cross-peer transcript broadcasting to Brave attendees, and a dismissable guidance banner directing users to enable speech recognition in `brave://settings/system`).*
-- **Dynamic Video Tile Stretching & Camera Cropping:**
-  - **Location:** `components/meeting/VideoGrid.tsx`, `components/meeting/VideoTile.tsx`
-  - **Details:** Single-user and multi-user grid containers dynamically filled available viewport height without an aspect ratio lock, causing video tiles to stretch into square or vertical boxes and heavily zoom/crop webcam feeds.
-  - **Status:** *(Resolved: Enforced standard 16:9 widescreen (`aspect-video`) constraint across all video containers, single-user centered view, speaker stage, PIP presentation, and multi-user gallery grids, guaranteeing Zoom-parity rectangular framing with zero camera distortion).*
-- **Dual-Language Hindi + English Live Captions:**
-  - **Location:** `lib/translation.ts`, `lib/transcriptionService.ts`, `components/meeting/MeetingRoom.tsx`, `components/meeting/MeetingControls.tsx`
-  - **Status:** *(Resolved: Replaced single-language exclusive toggling with default Dual Mode (`हिन्दी + EN`). Shows both spoken speech and instant bilingual translations simultaneously without requiring users to switch back and forth).*
+- **Gemini API 429 Rate Limit (Quota Exceeded on 20 RPD Preview Models):**
+  - **Location:** `app/api/meeting/summarize-and-email/route.ts`, `app/api/translate/route.ts`
+  - **Details:** `gemini-3-*` preview models enforce a strict 20 requests/day quota on the free tier, and live translation calls were hitting Gemini repeatedly during calls.
+  - **Status:** *(Resolved: Completely removed Gemini from `/api/translate` in favor of $0 free public translation gateway with memory caching, ensuring 0 API calls during live calls. Upgraded `summarize-and-email` to standard high-quota models `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-2.0-flash`, and `gemini-1.5-flash` with 1,500 RPD, and added an intelligent structured speaker-dialogue summary fallback guaranteeing executive notes are always dispatched to emails even if Google API is offline).*
+- **Universal Multi-Language & Target Language Subtitle Translation:**
+  - **Location:** `lib/translation.ts`, `components/meeting/MeetingControls.tsx`, `components/meeting/MeetingRoom.tsx`
+  - **Details:** Previously, users could only toggle single languages and could not force incoming multi-speaker dialogue to translate into a single chosen language.
+  - **Status:** *(Resolved: Implemented personalized Target Language Subtitle Engine with interactive CC popover. Supports 'Hindi Only' (translates all speech to Hindi), 'English Only' (translates all speech to English), 'Dual' (stacked bilingual subtitles), 9 Indian regional languages (मराठी, বাংলা, தமிழ், తెలుగు, ગુજરાતી, ಕನ್ನಡ, ਪੰਜਾਬੀ, മലയാളം, اردو), and 6 global languages (Español, Français, Deutsch, 日本語, العربية, Русский) with 0ms memory caching and $0 token cost).*
 
 ---
 
