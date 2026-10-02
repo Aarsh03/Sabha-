@@ -40,10 +40,26 @@ The following files and dependencies are tracked:
   - **Location:** `components/meeting/MeetingRoom.tsx`, `lib/transcriptionService.ts`
   - **Details:** Modern Brave desktop releases removed the Google Speech toggle completely from `brave://settings/system` for strict privacy, and browser security sandboxes block webpages from navigating to internal `brave://` protocols. This caused confusion when an earlier banner told users to visit `brave://settings/system`.
   - **Status:** *(Resolved: Updated Brave notice to accurately inform users that Brave disables speech-to-text for privacy while full 2-way WebRTC audio/video and viewing incoming live subtitles works 100%. Replaced the unworkable internal link with a 1-click 'Copy Link for Chrome/Edge' button and a 'Got it' dismiss button).*
-- [x] **Missing Final-Minute Sentences in Meeting Summaries & Transcripts:**
-  - **Location:** `components/meeting/MeetingRoom.tsx`, `lib/roomService.ts`, `lib/webrtc.ts`
-  - **Details:** Ending a meeting immediately triggered summary generation while participants were still speaking concluding remarks or while speech recognition buffers were pending finalization. Remote peers did not flush their interim buffers on host disconnect.
-  - **Status:** *(Resolved: Implemented a 60-second concluding buffer modal with a live countdown, speech syncing progress bar, and instant skip button. Added a `meeting-concluding` WebRTC/LiveKit broadcast instructing all attendees to flush interim buffers immediately, persisted all transcript lines in Firestore `rooms/{roomId}/transcripts`, and merged all Firestore records prior to Gemini AI summarization and email dispatch).*
+- [x] **MyMemory Translation 429 IP Quota Block:**
+  - **Location:** `lib/translation.ts`, `app/api/translate/route.ts`
+  - **Details:** The free MyMemory API enforces a 5,000 words/day IP limit, returning HTTP 429 and causing English subtitles to fall back to untranslated Hindi text.
+  - **Status:** *(Resolved: Replaced with Google Chrome Translation Gateway `clients5.google.com/translate_a/t?client=dict-chrome-ex`, providing $0 cost, unlimited capacity, and ~80ms response latency).*
+- [x] **Firestore `undefined` Field Value Crash in `setDoc()`:**
+  - **Location:** `lib/roomService.ts`
+  - **Details:** When storing transcripts, `translation: undefined` was passed to Firestore's `setDoc()`, triggering `FirebaseError: Function setDoc() called with invalid data. Unsupported field value: undefined`.
+  - **Status:** *(Resolved: Sanitized transcript payload in `saveRoomTranscriptItem` to ensure only defined fields are saved).*
+- [x] **Interim Subtitle Flickering & Jargon Text Display:**
+  - **Location:** `components/meeting/MeetingRoom.tsx`
+  - **Details:** High-frequency Web Speech API interim results fired 15-20 times/sec per partial syllable, flashing raw untranslated text before translation completed and rapidly disappearing.
+  - **Status:** *(Resolved: Added 280ms anti-flicker debouncing for interim speech with minimum 2-word threshold, pre-formatted text according to target language before rendering, and extended finalized subtitle display to 6 full seconds).*
+- [x] **Spoken Transcripts Logged in English & Strict English AI Summaries:**
+  - **Location:** `components/meeting/MeetingRoom.tsx`, `app/api/meeting/summarize-and-email/route.ts`
+  - **Details:** Transcripts were previously saved in Devanagari Hindi, and Gemini summaries occasionally included Hindi/Hinglish quotations.
+  - **Status:** *(Resolved: Finalized speech is converted to English for `text` prior to saving in Firestore and `transcriptRef.current` (original preserved in `translation`). Gemini prompt strictly mandates 100% professional English with zero Devanagari/Hindi/Hinglish, and fallback summary generates pure English highlights).*
+- [x] **Instant Meeting End for All Participants with Background Server Summarization:**
+  - **Location:** `components/meeting/MeetingRoom.tsx`, `app/api/meeting/summarize-and-email/route.ts`
+  - **Details:** Previously, ending a meeting forced the host and attendees to wait on a 60-second modal screen.
+  - **Status:** *(Resolved: Replaced 60-second screen modal with instant exit for all participants. Flushes local speech buffers, broadcasts kick/leave to peers immediately, and dispatches `/api/meeting/summarize-and-email` with `keepalive: true`. The server merges Firestore transcripts in the background and sends emails via Zoho Mail).*
 
 ---
 

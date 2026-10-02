@@ -89,6 +89,36 @@ export class LiveTranscriptionService {
     }
   }
 
+  public static mapLanguageToRecognitionLang(lang: string): string {
+    if (lang === 'english_only' || lang === 'en' || lang === 'en-IN' || lang === 'en-US') {
+      return 'en-IN';
+    }
+    if (lang === 'hindi_only' || lang === 'hi' || lang === 'hi-IN') {
+      return 'hi-IN';
+    }
+    if (lang === 'dual') {
+      return 'hi-IN';
+    }
+    const bcpMap: Record<string, string> = {
+      mr: 'mr-IN',
+      bn: 'bn-IN',
+      ta: 'ta-IN',
+      te: 'te-IN',
+      gu: 'gu-IN',
+      kn: 'kn-IN',
+      pa: 'pa-IN',
+      ml: 'ml-IN',
+      ur: 'ur-IN',
+      es: 'es-ES',
+      fr: 'fr-FR',
+      de: 'de-DE',
+      ja: 'ja-JP',
+      ar: 'ar-SA',
+      ru: 'ru-RU',
+    };
+    return bcpMap[lang] || 'en-IN';
+  }
+
   private initRecognition() {
     if (typeof window === 'undefined') return;
 
@@ -106,8 +136,8 @@ export class LiveTranscriptionService {
       recognition.continuous = true;
       recognition.interimResults = true;
 
-      // In dual mode, use 'hi-IN' which natively parses both Hindi Devanagari and Indian English/Hinglish
-      recognition.lang = this.language === 'en-IN' ? 'en-IN' : 'hi-IN';
+      // Dynamically map chosen language to native speech recognition BCP-47 model
+      recognition.lang = LiveTranscriptionService.mapLanguageToRecognitionLang(this.language);
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {

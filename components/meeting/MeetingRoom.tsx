@@ -23,9 +23,8 @@ import {
   updateParticipantRole,
   registerParticipant,
   saveRoomTranscriptItem,
-  fetchRoomTranscripts,
 } from '@/lib/roomService';
-import { formatCaptionForUserPreference } from '@/lib/translation';
+import { isHindiText, formatCaptionForUserPreference, translateText } from '@/lib/translation';
 import { useAuth } from '@/lib/authContext';
 import { VideoGrid } from './VideoGrid';
 import { MeetingControls } from './MeetingControls';
@@ -41,8 +40,6 @@ import { ReactionsOverlay } from './ReactionsOverlay';
 import {
   Copy,
   Check,
-  Clock,
-  Zap,
   Share2,
   ShieldCheck,
   ChevronDown,
@@ -51,9 +48,8 @@ import {
   Grid2X2,
   Maximize,
   Minimize,
+  Zap,
   Lock,
-  Sparkles,
-  Loader2,
 } from 'lucide-react';
 
 interface MeetingRoomProps {
@@ -127,7 +123,7 @@ export function MeetingRoom({
   const [isLiveKitSFU, setIsLiveKitSFU] = useState(false);
 
   // Live Speech-to-Text Transcription & Captions
-  const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
+  const [, setTranscript] = useState<TranscriptItem[]>([]);
   const transcriptRef = useRef<TranscriptItem[]>([]);
   const [isCaptionsOn, setIsCaptionsOn] = useState<boolean>(true);
   const [isBraveActive, setIsBraveActive] = useState<boolean>(false);
@@ -138,18 +134,15 @@ export function MeetingRoom({
     captionLanguageRef.current = captionLanguage;
   }, [captionLanguage]);
 
-  // 60-Second Meeting Concluding Wrap-up State
-  const [isConcludingMeeting, setIsConcludingMeeting] = useState<boolean>(false);
-  const [isMeetingConcludingByHost, setIsMeetingConcludingByHost] = useState<boolean>(false);
-  const [concludingSecondsRemaining, setConcludingSecondsRemaining] = useState<number>(60);
-  const [isExecutingFinalEnd, setIsExecutingFinalEnd] = useState<boolean>(false);
-  const concludingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Subtitle Anti-Flicker Debounce & Display State
+  const captionDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const remoteCaptionDebounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     return () => {
-      if (concludingTimerRef.current) {
-        clearInterval(concludingTimerRef.current);
-      }
+      if (captionDebounceTimerRef.current) clearTimeout(captionDebounceTimerRef.current);
+      if (remoteCaptionDebounceTimerRef.current) clearTimeout(remoteCaptionDebounceTimerRef.current);
+      if (captionFadeTimerRef.current) clearTimeout(captionFadeTimerRef.current);
     };
   }, []);
 
@@ -162,30 +155,104 @@ export function MeetingRoom({
   const captionFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const transcriptionServiceRef = useRef<LiveTranscriptionService | null>(null);
 
-  const handleUpdateLiveCaption = (
+  const handleUpdateLiveCaption = useStableCallback((
     senderName: string,
     text: string,
     translation?: string,
     badgeLabel?: string
   ) => {
+    const activeTarget = captionLanguageRef.current || 'dual';
+
+    // STRICT ZERO-HINDI GUARD for English Only mode:
+    // If user has selected English Only, NEVER display Devanagari / Hindi script!
+    if (activeTarget === 'english_only' && (isHindiText(text) || isHindiText(translation || ''))) {
+      const textToTranslate = isHindiText(text) ? text : (translation || text);
+      translateText(textToTranslate, 'hi', 'en')
+        .then((eng) => {
+          if (eng && !isHindiText(eng)) {
+            setLatestLiveCaption({ senderName, text: eng, translation: undefined, badgeLabel: 'English' });
+            if (captionFadeTimerRef.current) clearTimeout(captionFadeTimerRef.current);
+            captionFadeTimerRef.current = setTimeout(() => setLatestLiveCaption(null), 6000);
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
     setLatestLiveCaption({ senderName, text, translation, badgeLabel });
     if (captionFadeTimerRef.current) {
       clearTimeout(captionFadeTimerRef.current);
     }
+    // Hold caption on screen for 6 seconds so user has ample time to read without rushing
+    // Ref mutation inside an event-time handler (never during render) is valid; the compiler lint misreads it
+    // eslint-disable-next-line react-hooks/immutability
     captionFadeTimerRef.current = setTimeout(() => {
       setLatestLiveCaption(null);
-    }, 5500);
-  };
+    }, 6000);
+  });
 
   const handleAppendTranscriptItem = (item: TranscriptItem) => {
     if (!item || !item.text) return;
 
-    // 1. Immediately render caption with 0ms latency so Chrome never shows a blank screen
-    handleUpdateLiveCaption(item.senderName, item.text);
-
-    // 2. Format according to current active language preference
     const activeTarget = captionLanguageRef.current || 'dual';
-    formatCaptionForUserPreference(item.text, activeTarget)
+
+    // Handle interim results with anti-flicker debouncing
+    if (!item.isFinal) {
+      const words = item.text.trim().split(/\s+/);
+      if (words.length < 2 || item.text.trim().length < 4) return;
+
+      if (remoteCaptionDebounceTimerRef.current) {
+        clearTimeout(remoteCaptionDebounceTimerRef.current);
+      }
+      remoteCaptionDebounceTimerRef.current = setTimeout(() => {
+        // In English only mode, if item.text is already in English, render immediately with 0ms delay
+        if (activeTarget === 'english_only') {
+          if (!isHindiText(item.text)) {
+            handleUpdateLiveCaption(item.senderName, item.text, undefined, 'English');
+            return;
+          }
+          translateText(item.text, 'hi', 'en').then((eng) => {
+            handleUpdateLiveCaption(item.senderName, eng, undefined, 'English');
+          }).catch(() => {});
+          return;
+        }
+
+        const sourceText = item.translation || item.text;
+        formatCaptionForUserPreference(sourceText, activeTarget)
+          .then(({ primaryText, secondaryText, badgeLabel }) => {
+            if (primaryText) {
+              handleUpdateLiveCaption(item.senderName, primaryText, secondaryText, badgeLabel);
+            }
+          })
+          .catch(() => {});
+      }, 280);
+      return;
+    }
+
+    // Finalized item from remote peer: clear interim debounce and render
+    if (remoteCaptionDebounceTimerRef.current) {
+      clearTimeout(remoteCaptionDebounceTimerRef.current);
+      remoteCaptionDebounceTimerRef.current = null;
+    }
+
+    transcriptRef.current.push(item);
+    setTranscript((prev) => [...prev, item]);
+    saveRoomTranscriptItem(roomId, item).catch(() => {});
+
+    // In English only mode, if item.text is already English, render immediately
+    if (activeTarget === 'english_only') {
+      if (!isHindiText(item.text)) {
+        handleUpdateLiveCaption(item.senderName, item.text, undefined, 'English');
+        return;
+      }
+      translateText(item.text, 'hi', 'en').then((eng) => {
+        handleUpdateLiveCaption(item.senderName, eng, undefined, 'English');
+      }).catch(() => {});
+      return;
+    }
+
+    const sourceText = item.translation || item.text;
+    formatCaptionForUserPreference(sourceText, activeTarget)
       .then(({ primaryText, secondaryText, badgeLabel }) => {
         if (primaryText) {
           handleUpdateLiveCaption(item.senderName, primaryText, secondaryText, badgeLabel);
@@ -194,12 +261,6 @@ export function MeetingRoom({
       .catch((err) => {
         console.warn('[Captions] Translation notice:', err);
       });
-
-    if (item.isFinal) {
-      transcriptRef.current.push(item);
-      setTranscript((prev) => [...prev, item]);
-      saveRoomTranscriptItem(roomId, item).catch(() => {});
-    }
   };
 
   const handleAppendTranscriptItemRef = useRef(handleAppendTranscriptItem);
@@ -353,7 +414,6 @@ export function MeetingRoom({
               } else if (payload?.type === 'transcript-chunk' && payload.item) {
                 handleAppendTranscriptItemRef.current(payload.item);
               } else if (payload?.type === 'meeting-concluding') {
-                setIsMeetingConcludingByHost(true);
                 if (transcriptionServiceRef.current) {
                   const flushed = transcriptionServiceRef.current.flushInterim();
                   if (flushed && flushed.length > 0) {
@@ -509,7 +569,6 @@ export function MeetingRoom({
         };
 
         manager.onMeetingConcluding = () => {
-          setIsMeetingConcludingByHost(true);
           if (transcriptionServiceRef.current) {
             const flushed = transcriptionServiceRef.current.flushInterim();
             if (flushed && flushed.length > 0) {
@@ -619,53 +678,81 @@ export function MeetingRoom({
       setIsBraveActive(brave);
     });
 
-    service.setCallbacks((text, isFinal, translation) => {
-      const baseItem: TranscriptItem = {
-        id: `${localParticipant.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
-        senderId: localParticipant.id,
-        senderName: localParticipant.name || 'You',
-        text,
-        timestamp: Date.now(),
-        isFinal,
+    service.setCallbacks((text, isFinal) => {
+      // 1. Debounce and clean interim speech so partial syllables NEVER flash or flicker
+      if (!isFinal) {
+        if (text.trim().length < 4 || text.trim().split(/\s+/).length < 2) {
+          return;
+        }
+        if (captionDebounceTimerRef.current) {
+          clearTimeout(captionDebounceTimerRef.current);
+        }
+        captionDebounceTimerRef.current = setTimeout(() => {
+          const targetLang = captionLanguageRef.current || 'dual';
+          formatCaptionForUserPreference(text, targetLang)
+            .then(({ primaryText, secondaryText, badgeLabel }) => {
+              if (primaryText) {
+                handleUpdateLiveCaption(localParticipant.name || 'You', primaryText, secondaryText, badgeLabel);
+              }
+            })
+            .catch(() => {});
+        }, 280);
+        return;
+      }
+
+      // 2. Finalized speech: clear interim debounce timer
+      if (captionDebounceTimerRef.current) {
+        clearTimeout(captionDebounceTimerRef.current);
+        captionDebounceTimerRef.current = null;
+      }
+
+      // Translate Devanagari/Hindi to English so transcripts are ALWAYS logged in English
+      const processFinalized = async () => {
+        let englishText = text;
+        if (isHindiText(text)) {
+          try {
+            englishText = await translateText(text, 'hi', 'en');
+          } catch {}
+        }
+
+        const baseItem: TranscriptItem = {
+          id: `${localParticipant.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+          senderId: localParticipant.id,
+          senderName: localParticipant.name || 'You',
+          text: englishText, // Transcripts are ALWAYS logged in English
+          translation: text !== englishText ? text : undefined, // Spoken original preserved in translation field
+          timestamp: Date.now(),
+          isFinal: true,
+        };
+
+        // Broadcast to all peers
+        if (liveKitManagerRef.current) {
+          liveKitManagerRef.current.sendData({
+            type: 'transcript-chunk',
+            item: baseItem,
+          });
+        }
+        if (rtcManagerRef.current) {
+          rtcManagerRef.current.sendTranscriptItem(baseItem);
+        }
+
+        // Save to local transcript and Firestore
+        transcriptRef.current.push(baseItem);
+        setTranscript((prev) => [...prev, baseItem]);
+        saveRoomTranscriptItem(roomId, baseItem).catch(() => {});
+
+        // Format and render subtitle for 6 seconds in user's chosen target language
+        const targetLang = captionLanguageRef.current || 'dual';
+        formatCaptionForUserPreference(text, targetLang)
+          .then(({ primaryText, secondaryText, badgeLabel }) => {
+            if (primaryText) {
+              handleUpdateLiveCaption(localParticipant.name || 'You', primaryText, secondaryText, badgeLabel);
+            }
+          })
+          .catch(() => {});
       };
 
-      // 1. Immediately render own caption locally with 0ms latency
-      handleUpdateLiveCaption(localParticipant.name || 'You', text);
-
-      // 2. Broadcast raw spoken text immediately so all peers receive speech in real time
-      const itemToBroadcast: TranscriptItem = {
-        ...baseItem,
-        text,
-        translation,
-      };
-
-      if (liveKitManagerRef.current) {
-        liveKitManagerRef.current.sendData({
-          type: 'transcript-chunk',
-          item: itemToBroadcast,
-        });
-      }
-      if (rtcManagerRef.current) {
-        rtcManagerRef.current.sendTranscriptItem(itemToBroadcast);
-      }
-
-      if (isFinal) {
-        transcriptRef.current.push(itemToBroadcast);
-        setTranscript((prev) => [...prev, itemToBroadcast]);
-        saveRoomTranscriptItem(roomId, itemToBroadcast).catch(() => {});
-      }
-
-      // 3. Format local caption according to user's chosen target language
-      const targetLang = captionLanguageRef.current || 'dual';
-      formatCaptionForUserPreference(text, targetLang)
-        .then(({ primaryText, secondaryText, badgeLabel }) => {
-          if (primaryText) {
-            handleUpdateLiveCaption(localParticipant.name || 'You', primaryText, secondaryText, badgeLabel);
-          }
-        })
-        .catch((err) => {
-          console.warn('[Captions] Local formatting notice:', err);
-        });
+      processFinalized().catch(() => {});
     });
 
     if (localParticipant.audioEnabled) {
@@ -676,20 +763,40 @@ export function MeetingRoom({
     return () => {
       const flushed = service.flushInterim();
       if (flushed) {
-        const flushedItem: TranscriptItem = {
-          id: `${localParticipant.id}_${Date.now()}_clean_flush`,
-          senderId: localParticipant.id,
-          senderName: localParticipant.name || 'You',
-          text: flushed,
-          timestamp: Date.now(),
-          isFinal: true,
-        };
-        transcript.push(flushedItem);
+        if (isHindiText(flushed)) {
+          translateText(flushed, 'hi', 'en').then((res) => {
+            const item: TranscriptItem = {
+              id: `${localParticipant.id}_${Date.now()}_clean_flush`,
+              senderId: localParticipant.id,
+              senderName: localParticipant.name || 'You',
+              text: res,
+              translation: flushed !== res ? flushed : undefined,
+              timestamp: Date.now(),
+              isFinal: true,
+            };
+            transcript.push(item);
+            saveRoomTranscriptItem(roomId, item).catch(() => {});
+          }).catch(() => {});
+        } else {
+          const flushedItem: TranscriptItem = {
+            id: `${localParticipant.id}_${Date.now()}_clean_flush`,
+            senderId: localParticipant.id,
+            senderName: localParticipant.name || 'You',
+            text: flushed,
+            timestamp: Date.now(),
+            isFinal: true,
+          };
+          transcript.push(flushedItem);
+          saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
+        }
       }
       service.destroy();
       transcriptionServiceRef.current = null;
       if (captionFadeTimerRef.current) {
         clearTimeout(captionFadeTimerRef.current);
+      }
+      if (captionDebounceTimerRef.current) {
+        clearTimeout(captionDebounceTimerRef.current);
       }
     };
     // Recreated only when identity, transport or language changes; mute state is synced by the effect below
@@ -1142,8 +1249,11 @@ export function MeetingRoom({
           const url = URL.createObjectURL(blob);
           const a = document.createElement('a');
           a.style.display = 'none';
-          a.href = url;
-          a.download = `sabha-recording-${roomId}-${Date.now()}.webm`;
+          const cleanTitle = (roomSettings?.title || 'Sabha-Meeting').replace(/[^a-zA-Z0-9_-]/g, '_');
+          const dateStr = new Date().toISOString().slice(0, 10);
+          const timeStr = new Date().toTimeString().slice(0, 8).replace(/:/g, '-');
+          const ext = mimeType.includes('mp4') ? 'mp4' : 'webm';
+          a.download = `${cleanTitle}_${roomId}_${dateStr}_${timeStr}.${ext}`;
           document.body.appendChild(a);
           a.click();
           setTimeout(() => {
@@ -1266,125 +1376,43 @@ export function MeetingRoom({
 
   const handleInitiateEndMeeting = async () => {
     setIsLeaveModalOpen(false);
-    setIsConcludingMeeting(true);
-    setConcludingSecondsRemaining(60);
 
-    // 1. Immediately flush host's local interim speech buffer and save
+    // 1. Immediately flush host's local interim speech buffer and log in English
     if (transcriptionServiceRef.current) {
       const flushed = transcriptionServiceRef.current.flushInterim();
       if (flushed && flushed.length > 0) {
+        let englishText = flushed;
+        if (isHindiText(flushed)) {
+          try {
+            englishText = await translateText(flushed, 'hi', 'en');
+          } catch {}
+        }
         const flushedItem: TranscriptItem = {
           id: `${localParticipant.id}_${Date.now()}_host_conclude_flush`,
           senderId: localParticipant.id,
           senderName: localParticipant.name || 'You',
-          text: flushed,
+          text: englishText,
+          translation: flushed !== englishText ? flushed : undefined,
           timestamp: Date.now(),
           isFinal: true,
         };
         transcriptRef.current.push(flushedItem);
-        setTranscript((prev) => [...prev, flushedItem]);
         saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
       }
     }
 
-    // 2. Broadcast 'meeting-concluding' signal to remote participants
-    const concludingPayload = {
-      type: 'meeting-concluding',
-      remainingSeconds: 60,
-    };
-    if (liveKitManagerRef.current) {
-      liveKitManagerRef.current.sendData(concludingPayload);
-    }
-    if (rtcManagerRef.current) {
-      rtcManagerRef.current.sendConcludingSignal(60);
-    }
-
-    // 3. Start 60-second countdown timer
-    if (concludingTimerRef.current) clearInterval(concludingTimerRef.current);
-    concludingTimerRef.current = setInterval(() => {
-      setConcludingSecondsRemaining((prev) => {
-        if (prev <= 1) {
-          if (concludingTimerRef.current) clearInterval(concludingTimerRef.current);
-          handleExecuteFinalMeetingEnd();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleExecuteFinalMeetingEnd = async () => {
-    if (concludingTimerRef.current) {
-      clearInterval(concludingTimerRef.current);
-      concludingTimerRef.current = null;
-    }
-    setIsExecutingFinalEnd(true);
-    updateHostPresence(roomId, false).catch(() => {});
-
-    // 1. Final flush of host speech
-    if (transcriptionServiceRef.current) {
-      const flushed = transcriptionServiceRef.current.flushInterim();
-      if (flushed && flushed.length > 0) {
-        const flushedItem: TranscriptItem = {
-          id: `${localParticipant.id}_${Date.now()}_final_flush`,
-          senderId: localParticipant.id,
-          senderName: localParticipant.name || 'You',
-          text: flushed,
-          timestamp: Date.now(),
-          isFinal: true,
-        };
-        transcriptRef.current.push(flushedItem);
-        setTranscript((prev) => [...prev, flushedItem]);
-        saveRoomTranscriptItem(roomId, flushedItem).catch(() => {});
-      }
-    }
-
-    // 2. Fetch all transcripts from Firestore to ensure NO speech was missed from any participant
-    const completeTranscript = [...transcriptRef.current];
+    // 2. Broadcast kick/end command to all remote participants so they exit immediately with zero waiting
     try {
-      const firestoreTranscripts = await fetchRoomTranscripts(roomId);
-      if (firestoreTranscripts && firestoreTranscripts.length > 0) {
-        const existingIds = new Set(completeTranscript.map((t) => t.id));
-        for (const item of firestoreTranscripts) {
-          if (!existingIds.has(item.id)) {
-            completeTranscript.push(item);
-            existingIds.add(item.id);
-          }
-        }
-        completeTranscript.sort((a, b) => a.timestamp - b.timestamp);
+      if (liveKitManagerRef.current) {
+        liveKitManagerRef.current.sendData({ type: 'end-meeting', reason: 'meeting-ended' });
       }
-    } catch (e) {
-      console.warn('Could not merge Firestore transcripts:', e);
-    }
+      await rtcManagerRef.current?.sendKickCommand('broadcast', 'meeting-ended');
+      for (const p of remoteParticipants) {
+        rtcManagerRef.current?.sendKickCommand(p.id, 'meeting-ended').catch(() => {});
+      }
+    } catch {}
 
-    // 3. Dispatch AI Meeting Summarization & Email Dispatch with 100% complete transcripts
-    try {
-      const allParticipants = [localParticipant, ...remoteParticipants];
-      const summaryPayload = JSON.stringify({
-        roomId,
-        title: roomSettings.title,
-        durationMinutes: Math.max(1, Math.ceil(duration / 60)),
-        participants: allParticipants.map((p) => ({
-          id: p.id,
-          name: p.name,
-          email: p.email || (p.id === localParticipant.id ? user?.email : null) || null,
-          isHost: p.isHost,
-          isCoHost: p.isCoHost,
-        })),
-        transcript: completeTranscript,
-      });
-
-      await fetch('/api/meeting/summarize-and-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: summaryPayload,
-        keepalive: true,
-      }).catch((e) => console.warn('Summarization email dispatch error:', e));
-    } catch (err) {
-      console.warn('Failed to dispatch meeting summarization:', err);
-    }
-
-    // 4. Notify server with endForAll flag
+    // 3. Notify server with endForAll flag
     try {
       if (typeof navigator !== 'undefined' && navigator.sendBeacon) {
         const payload = JSON.stringify({ roomId, participantId: localParticipant.id, endForAll: true });
@@ -1398,24 +1426,42 @@ export function MeetingRoom({
       }
     } catch {}
 
-    // 5. Broadcast kick/end command to all peers
+    // 4. Dispatch AI Meeting Summarization & Email Dispatch in server background (server merges Firestore transcripts)
     try {
-      if (liveKitManagerRef.current) {
-        liveKitManagerRef.current.sendData({ type: 'end-meeting', reason: 'meeting-ended' });
-      }
-      await rtcManagerRef.current?.sendKickCommand('broadcast', 'meeting-ended');
-      for (const p of remoteParticipants) {
-        rtcManagerRef.current?.sendKickCommand(p.id, 'meeting-ended').catch(() => {});
-      }
-    } catch {}
+      const allParticipants = [localParticipant, ...remoteParticipants];
+      const summaryPayload = JSON.stringify({
+        roomId,
+        title: roomSettings.title,
+        durationMinutes: Math.max(1, Math.ceil(duration / 60)),
+        participants: allParticipants.map((p) => ({
+          id: p.id,
+          name: p.name,
+          email: p.email || (p.id === localParticipant.id ? user?.email : null) || null,
+          isHost: p.isHost,
+          isCoHost: p.isCoHost,
+        })),
+        transcript: transcriptRef.current,
+      });
 
-    await new Promise((resolve) => setTimeout(resolve, 400));
-
-    // 6. Disconnect local engines and navigate home
-    if (liveKitManagerRef.current) {
-      await liveKitManagerRef.current.disconnect().catch(() => {});
+      fetch('/api/meeting/summarize-and-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: summaryPayload,
+        keepalive: true,
+      }).catch((e) => console.warn('Summarization email dispatch error:', e));
+    } catch (err) {
+      console.warn('Failed to dispatch meeting summarization:', err);
     }
-    await rtcManagerRef.current?.leaveRoom().catch(() => {});
+
+    updateHostPresence(roomId, false).catch(() => {});
+
+    // 5. Disconnect local engines and navigate home immediately (0ms waiting!)
+    if (liveKitManagerRef.current) {
+      liveKitManagerRef.current.disconnect().catch(() => {});
+    }
+    if (rtcManagerRef.current) {
+      rtcManagerRef.current.leaveRoom().catch(() => {});
+    }
     router.push('/');
   };
 
@@ -1425,15 +1471,22 @@ export function MeetingRoom({
       updateHostPresence(roomId, false).catch(() => {});
     }
 
-    // Flush attendee's speech before leaving so concluding remarks are recorded
+    // Flush attendee's speech before leaving so concluding remarks are recorded in English
     if (transcriptionServiceRef.current) {
       const flushed = transcriptionServiceRef.current.flushInterim();
       if (flushed && flushed.length > 0) {
+        let englishText = flushed;
+        if (isHindiText(flushed)) {
+          try {
+            englishText = await translateText(flushed, 'hi', 'en');
+          } catch {}
+        }
         const flushedItem: TranscriptItem = {
           id: `${localParticipant.id}_${Date.now()}_leave_flush`,
           senderId: localParticipant.id,
           senderName: localParticipant.name || 'You',
-          text: flushed,
+          text: englishText,
+          translation: flushed !== englishText ? flushed : undefined,
           timestamp: Date.now(),
           isFinal: true,
         };
@@ -1934,104 +1987,6 @@ export function MeetingRoom({
         onLeaveMeeting={handleLeaveMeeting}
         onEndMeetingForAll={handleInitiateEndMeeting}
       />
-
-      {/* Host 60-Second Meeting Wrap-up & AI Summarization Countdown Modal */}
-      {isConcludingMeeting && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 animate-in fade-in duration-200 select-none">
-          <div className="relative w-full max-w-lg bg-slate-900 border border-amber-500/40 rounded-3xl shadow-2xl p-6 sm:p-8 text-slate-100 overflow-hidden text-center">
-            {/* Background ambient glow */}
-            <div className="absolute -top-24 -left-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
-            <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
-
-            <div className="relative z-10">
-              <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-500/15 border border-amber-500/30 flex items-center justify-center text-amber-400 mb-4 shadow-lg shadow-amber-500/10">
-                <Sparkles className="w-7 h-7 animate-pulse text-amber-400" />
-              </div>
-
-              <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 tracking-tight">
-                Wrapping Up Sabha Assembly
-              </h2>
-
-              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed mb-6 max-w-md mx-auto">
-                Waiting 1 minute for all speakers to conclude their final remarks. Sabha AI is syncing all speech buffers to ensure 100% of concluding sentences are captured before emailing notes.
-              </p>
-
-              {/* Countdown Progress Display */}
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 mb-6 shadow-inner">
-                <div className="flex items-center justify-between text-xs text-slate-400 mb-2 font-medium">
-                  <span className="flex items-center gap-1.5">
-                    <Clock className="w-4 h-4 text-amber-400" />
-                    <span>Auto-dispatching in:</span>
-                  </span>
-                  <span className="font-mono text-base font-bold text-amber-300">
-                    {concludingSecondsRemaining}s
-                  </span>
-                </div>
-
-                {/* Progress bar */}
-                <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden mb-3">
-                  <div
-                    className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-1000 ease-linear rounded-full"
-                    style={{ width: `${(concludingSecondsRemaining / 60) * 100}%` }}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1 border-t border-slate-800/80">
-                  <span>Captured Remarks:</span>
-                  <span className="text-emerald-400 font-bold font-mono">
-                    {transcript.length} sentences
-                  </span>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-3">
-                <button
-                  onClick={handleExecuteFinalMeetingEnd}
-                  disabled={isExecutingFinalEnd}
-                  className="w-full py-3.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-sm transition shadow-lg shadow-emerald-900/30 flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-50"
-                >
-                  {isExecutingFinalEnd ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      <span>Generating Summary & Emailing Notes...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-4 h-4" />
-                      <span>Send Summary & Conclude Now (Skip Wait)</span>
-                    </>
-                  )}
-                </button>
-
-                {!isExecutingFinalEnd && (
-                  <button
-                    onClick={() => {
-                      if (concludingTimerRef.current) clearInterval(concludingTimerRef.current);
-                      setIsConcludingMeeting(false);
-                    }}
-                    className="w-full py-2.5 px-4 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 hover:text-white font-medium text-xs transition cursor-pointer"
-                  >
-                    Resume Meeting / Cancel
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Remote Participant Wrapping Up Notice Banner */}
-      {isMeetingConcludingByHost && !localParticipant.isHost && (
-        <div className="absolute top-16 left-1/2 -translate-x-1/2 max-w-xl w-[92%] sm:w-auto px-4 py-2.5 rounded-xl bg-amber-950/90 border border-amber-500/60 backdrop-blur-md text-amber-200 text-xs flex items-center justify-between gap-3 shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-center gap-2.5">
-            <span className="text-base">⏳</span>
-            <span className="leading-snug">
-              <strong>Meeting Concluding:</strong> The host is wrapping up this Sabha. Concluding remarks are being synced for the meeting notes & transcript email.
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Floating Emoji Reactions Layer */}
       <ReactionsOverlay latestReaction={latestReaction} />

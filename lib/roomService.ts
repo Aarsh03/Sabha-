@@ -538,7 +538,18 @@ export async function saveRoomTranscriptItem(
   if (isFirebaseConfigured() && db && item && item.text) {
     try {
       const transcriptsCol = collection(db, `rooms/${roomId}/transcripts`);
-      await setDoc(doc(transcriptsCol, item.id), item, { merge: true });
+      const cleanItem: Record<string, unknown> = {
+        id: item.id,
+        senderId: item.senderId || '',
+        senderName: item.senderName || 'Participant',
+        text: item.text || '',
+        timestamp: item.timestamp || Date.now(),
+        isFinal: Boolean(item.isFinal),
+      };
+      if (typeof item.translation === 'string' && item.translation.trim().length > 0) {
+        cleanItem.translation = item.translation.trim();
+      }
+      await setDoc(doc(transcriptsCol, item.id), cleanItem, { merge: true });
     } catch (err) {
       console.warn('Error saving transcript to Firestore:', err);
     }
