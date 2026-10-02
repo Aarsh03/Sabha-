@@ -110,19 +110,46 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Server-Side Firestore Transcript Merge: captures all speech chunks synced to Firestore
+    let completeTranscript: TranscriptItemData[] = [...(transcript || [])];
+    if (isFirebaseConfigured() && db) {
+      try {
+        const snap = await getDocs(collection(db, `rooms/${roomId}/transcripts`));
+        const existingTexts = new Set(completeTranscript.map((t) => `${t.senderName}:${t.text}:${Math.floor(t.timestamp / 1000)}`));
+        snap.forEach((d) => {
+          const data = d.data() as any;
+          if (data && data.text) {
+            const key = `${data.senderName}:${data.text}:${Math.floor((data.timestamp || 0) / 1000)}`;
+            if (!existingTexts.has(key)) {
+              completeTranscript.push({
+                senderName: data.senderName || 'Participant',
+                text: data.text,
+                translation: data.translation,
+                timestamp: data.timestamp || Date.now(),
+              });
+              existingTexts.add(key);
+            }
+          }
+        });
+        completeTranscript.sort((a, b) => a.timestamp - b.timestamp);
+      } catch (trErr) {
+        console.warn('Could not merge Firestore transcripts:', trErr);
+      }
+    }
+
     const participantNames = participants.map((p) => p.name || 'Participant').join(', ');
 
     // 2. Generate Verbatim Transcript Text
     let transcriptText = '';
-    if (transcript && transcript.length > 0) {
-      const startTime = transcript[0].timestamp;
-      const lines = transcript.map((t) => {
+    if (completeTranscript && completeTranscript.length > 0) {
+      const startTime = completeTranscript[0].timestamp;
+      const lines = completeTranscript.map((t) => {
         const offsetSec = Math.max(0, Math.floor((t.timestamp - startTime) / 1000));
         const m = Math.floor(offsetSec / 60);
         const s = offsetSec % 60;
         const timeStr = `[${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}]`;
-        const translatedPart = t.translation && t.translation !== t.text ? ` (${t.translation})` : '';
-        return `${timeStr} ${t.senderName}: ${t.text}${translatedPart}`;
+        const originalSpoken = t.translation && t.translation !== t.text ? ` (Original: ${t.translation})` : '';
+        return `${timeStr} ${t.senderName}: ${t.text}${originalSpoken}`;
       });
 
       transcriptText = [
@@ -162,14 +189,11 @@ export async function POST(req: NextRequest) {
     let aiSummaryMarkdown = '';
     const geminiKey = (process.env.GEMINI_API_KEY || '').trim();
 
-    if (geminiKey && transcript && transcript.length > 0) {
+    if (geminiKey && completeTranscript && completeTranscript.length > 0) {
       try {
         const ai = new GoogleGenAI({ apiKey: geminiKey });
-        const dialogue = transcript
-          .map((t) => {
-            const tr = t.translation && t.translation !== t.text ? ` [Translation: ${t.translation}]` : '';
-            return `${t.senderName}: ${t.text}${tr}`;
-          })
+        const dialogue = completeTranscript
+          .map((t) => `${t.senderName}: ${t.text}`)
           .join('\n');
 
         const prompt = `You are an elite executive AI assistant summarizing a Sabha (सभा) video conference.
@@ -184,10 +208,11 @@ Attendees: ${participantNames}
 Verbatim Dialogue:
 ${dialogue.slice(0, 15000)}
 
-Instructions:
-- The spoken dialogue may contain Hindi (हिन्दी), Hinglish, or English speech.
-- Accurately understand and translate any Hindi speech into clear, high-quality, professional English in the Executive Overview, Key Discussion Points & Decisions, and Action Items.
-- Retain accurate names, key technical terms, and explicit decisions.
+STRICT LANGUAGE REQUIREMENT:
+- The entire summary MUST be written 100% in clear, professional English.
+- Do NOT use Hindi, Devanagari script, or Hinglish words anywhere in the summary output.
+- Translate any colloquial phrases into professional English.
+- The Executive Overview, Key Discussion Points, and Action Items must all be in fluent, polished English.
 
 Please produce a concise, professional, beautifully formatted summary in Markdown with the following structured sections:
 # 📋 Sabha Meeting Summary
@@ -197,13 +222,13 @@ Please produce a concise, professional, beautifully formatted summary in Markdow
 **Attendees**: ${participantNames}
 
 ## 🎯 Executive Overview
-(Summarize the primary purpose, context, and key narrative of the assembly in 1-2 sharp paragraphs)
+(Summarize the primary purpose, context, and key narrative of the assembly in 1-2 sharp paragraphs in English)
 
 ## 💡 Key Discussion Points & Decisions
-(Bullet points highlighting core topics discussed, insights shared, and explicit decisions made)
+(Bullet points highlighting core topics discussed, insights shared, and explicit decisions made, written in English)
 
 ## ⚡ Action Items & Next Steps
-(Actionable tasks formatted with owner and task details, e.g. "- **[Owner]**: Description of task")
+(Actionable tasks formatted with owner and task details, e.g. "- **[Owner]**: Description of task", written in English)
 
 Ensure clarity, professional tone, and zero fluff.`;
 
@@ -236,10 +261,10 @@ Ensure clarity, professional tone, and zero fluff.`;
     // High-quality structured fallback summary if Gemini hits 429 quota or is offline
     if (!aiSummaryMarkdown) {
       const speakerContributions: Record<string, string[]> = {};
-      transcript.forEach((t) => {
+      completeTranscript.forEach((t) => {
         const name = t.senderName || 'Participant';
         if (!speakerContributions[name]) speakerContributions[name] = [];
-        const content = t.translation && t.translation !== t.text ? `${t.text} (${t.translation})` : t.text;
+        const content = t.text;
         if (content && content.length > 3) {
           speakerContributions[name].push(content);
         }
@@ -258,7 +283,7 @@ Ensure clarity, professional tone, and zero fluff.`;
 
 ## 🎯 Executive Overview
 The Sabha assembly convened on ${dateFormatted} and concluded after ${durationMinutes} minutes with ${
-        transcript.length
+        completeTranscript.length
       } dialogue segments captured across ${Object.keys(speakerContributions).length || 1} active speaker(s). 
 
 ## 💡 Key Discussion Points & Dialogue Highlights

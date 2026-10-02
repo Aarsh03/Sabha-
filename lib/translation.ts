@@ -52,34 +52,47 @@ export function isHindiText(text: string): boolean {
   return /[\u0900-\u097F]/.test(text);
 }
 
+function parseGoogleTranslationResponse(data: any): string {
+  if (!data) return '';
+  if (Array.isArray(data)) {
+    if (Array.isArray(data[0])) {
+      return data
+        .map((item: any) => (Array.isArray(item) ? item[0] : item))
+        .filter(Boolean)
+        .join(' ')
+        .trim();
+    }
+    if (typeof data[0] === 'string') {
+      return data.join(' ').trim();
+    }
+  }
+  return '';
+}
+
 /**
- * Core translation helper using free public translation gateway with memory caching.
+ * Core translation helper using high-capacity Google translation gateway with memory caching.
  * Consumes 0 Gemini API tokens.
  */
 export async function translateText(text: string, fromLang: string, toLang: string): Promise<string> {
   const trimmed = text.trim();
   if (!trimmed || fromLang === toLang) return trimmed;
 
-  const cacheKey = `${fromLang}:${toLang}:${trimmed.toLowerCase()}`;
+  const srcLang = fromLang === 'autodetect' ? 'auto' : fromLang;
+  const cacheKey = `${srcLang}:${toLang}:${trimmed.toLowerCase()}`;
   if (translationCache.has(cacheKey)) {
     return translationCache.get(cacheKey)!;
   }
 
-  // 1. Client-side Fast Free Translation Gateway ($0 cost, 0 Gemini tokens)
+  // 1. High-speed Google Chrome Translation Gateway ($0 cost, 0 Gemini tokens, unlimited capacity)
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${fromLang}|${toLang}`;
+    const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${srcLang}&tl=${toLang}&q=${encodeURIComponent(trimmed)}`;
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
-      const translated = data?.responseData?.translatedText;
-      if (translated && typeof translated === 'string') {
-        if (translated.includes('PLEASE SELECT TWO DISTINCT LANGUAGES') || translated.startsWith('MYMEMORY WARNING')) {
-          translationCache.set(cacheKey, trimmed);
-          return trimmed;
-        }
-        const result = translated.trim();
-        translationCache.set(cacheKey, result);
-        return result;
+      const translated = parseGoogleTranslationResponse(data);
+      if (translated && translated.length > 0) {
+        translationCache.set(cacheKey, translated);
+        return translated;
       }
     }
   } catch {}
@@ -89,7 +102,7 @@ export async function translateText(text: string, fromLang: string, toLang: stri
     const res = await fetch('/api/translate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: trimmed, from: fromLang, to: toLang }),
+      body: JSON.stringify({ text: trimmed, from: srcLang, to: toLang }),
     });
 
     if (res.ok) {

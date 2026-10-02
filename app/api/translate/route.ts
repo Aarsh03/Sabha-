@@ -20,30 +20,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ translation: trimmed });
     }
 
-    const cacheKey = `${from}:${to}:${trimmed.toLowerCase()}`;
+    const srcLang = from === 'autodetect' ? 'auto' : from;
+    const cacheKey = `${srcLang}:${to}:${trimmed.toLowerCase()}`;
     if (serverTranslationCache.has(cacheKey)) {
       return NextResponse.json({ translation: serverTranslationCache.get(cacheKey)! });
     }
 
-    // Free Translation Gateway ($0 cost, 0 Gemini tokens)
+    // Google Chrome Fast Translation Gateway ($0 cost, 0 Gemini tokens, unlimited quota)
     try {
-      const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=${from}|${to}`;
-      const res = await fetch(url, { headers: { 'User-Agent': 'Sabha-Conference/1.0' } });
+      const url = `https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=${srcLang}&tl=${to}&q=${encodeURIComponent(trimmed)}`;
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
       if (res.ok) {
         const data = await res.json();
-        const translated = data?.responseData?.translatedText;
-        if (translated && typeof translated === 'string') {
-          if (translated.includes('PLEASE SELECT TWO DISTINCT LANGUAGES') || translated.startsWith('MYMEMORY WARNING')) {
-            serverTranslationCache.set(cacheKey, trimmed);
-            return NextResponse.json({ translation: trimmed });
+        let translatedText = '';
+        if (Array.isArray(data)) {
+          if (Array.isArray(data[0])) {
+            translatedText = data
+              .map((item: any) => (Array.isArray(item) ? item[0] : item))
+              .filter(Boolean)
+              .join(' ')
+              .trim();
+          } else if (typeof data[0] === 'string') {
+            translatedText = data.join(' ').trim();
           }
-          const cleanResult = translated.trim();
-          serverTranslationCache.set(cacheKey, cleanResult);
-          return NextResponse.json({ translation: cleanResult });
+        }
+        if (translatedText) {
+          serverTranslationCache.set(cacheKey, translatedText);
+          return NextResponse.json({ translation: translatedText });
         }
       }
     } catch (gatewayErr) {
-      console.warn('MyMemory gateway notice:', gatewayErr);
+      console.warn('Google translation gateway notice:', gatewayErr);
     }
 
     // Default to original text if translation fails
