@@ -157,6 +157,24 @@ export function MeetingRoom({
     translation?: string,
     badgeLabel?: string
   ) => {
+    const activeTarget = captionLanguageRef.current || 'dual';
+
+    // STRICT ZERO-HINDI GUARD for English Only mode:
+    // If user has selected English Only, NEVER display Devanagari / Hindi script!
+    if (activeTarget === 'english_only' && (isHindiText(text) || isHindiText(translation || ''))) {
+      const textToTranslate = isHindiText(text) ? text : (translation || text);
+      translateText(textToTranslate, 'hi', 'en')
+        .then((eng) => {
+          if (eng && !isHindiText(eng)) {
+            setLatestLiveCaption({ senderName, text: eng, translation: undefined, badgeLabel: 'English' });
+            if (captionFadeTimerRef.current) clearTimeout(captionFadeTimerRef.current);
+            captionFadeTimerRef.current = setTimeout(() => setLatestLiveCaption(null), 6000);
+          }
+        })
+        .catch(() => {});
+      return;
+    }
+
     setLatestLiveCaption({ senderName, text, translation, badgeLabel });
     if (captionFadeTimerRef.current) {
       clearTimeout(captionFadeTimerRef.current);
@@ -170,6 +188,8 @@ export function MeetingRoom({
   const handleAppendTranscriptItem = (item: TranscriptItem) => {
     if (!item || !item.text) return;
 
+    const activeTarget = captionLanguageRef.current || 'dual';
+
     // Handle interim results with anti-flicker debouncing
     if (!item.isFinal) {
       const words = item.text.trim().split(/\s+/);
@@ -179,7 +199,18 @@ export function MeetingRoom({
         clearTimeout(remoteCaptionDebounceTimerRef.current);
       }
       remoteCaptionDebounceTimerRef.current = setTimeout(() => {
-        const activeTarget = captionLanguageRef.current || 'dual';
+        // In English only mode, if item.text is already in English, render immediately with 0ms delay
+        if (activeTarget === 'english_only') {
+          if (!isHindiText(item.text)) {
+            handleUpdateLiveCaption(item.senderName, item.text, undefined, 'English');
+            return;
+          }
+          translateText(item.text, 'hi', 'en').then((eng) => {
+            handleUpdateLiveCaption(item.senderName, eng, undefined, 'English');
+          }).catch(() => {});
+          return;
+        }
+
         const sourceText = item.translation || item.text;
         formatCaptionForUserPreference(sourceText, activeTarget)
           .then(({ primaryText, secondaryText, badgeLabel }) => {
@@ -202,7 +233,18 @@ export function MeetingRoom({
     setTranscript((prev) => [...prev, item]);
     saveRoomTranscriptItem(roomId, item).catch(() => {});
 
-    const activeTarget = captionLanguageRef.current || 'dual';
+    // In English only mode, if item.text is already English, render immediately
+    if (activeTarget === 'english_only') {
+      if (!isHindiText(item.text)) {
+        handleUpdateLiveCaption(item.senderName, item.text, undefined, 'English');
+        return;
+      }
+      translateText(item.text, 'hi', 'en').then((eng) => {
+        handleUpdateLiveCaption(item.senderName, eng, undefined, 'English');
+      }).catch(() => {});
+      return;
+    }
+
     const sourceText = item.translation || item.text;
     formatCaptionForUserPreference(sourceText, activeTarget)
       .then(({ primaryText, secondaryText, badgeLabel }) => {
