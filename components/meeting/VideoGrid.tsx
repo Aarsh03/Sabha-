@@ -95,7 +95,7 @@ function ScreenPresentationStage({
 
       {/* Floating Presenter Face Camera (Zoom-style Picture-in-Picture) */}
       {presenterHasLiveVideo && showPip && (
-        <div className="absolute top-14 right-3 w-36 h-24 sm:w-48 sm:h-32 rounded-xl overflow-hidden border-2 border-indigo-500/60 shadow-2xl bg-slate-900/90 backdrop-blur z-20 group/pip">
+        <div className="absolute top-14 right-3 w-40 sm:w-56 aspect-video rounded-xl overflow-hidden border-2 border-indigo-500/60 shadow-2xl bg-slate-900/90 backdrop-blur z-20 group/pip">
           <video
             ref={presenterVideoRef}
             autoPlay
@@ -237,7 +237,7 @@ export function VideoGrid({
         {/* Participant Filmstrip Below Presentation */}
         <div className="h-28 sm:h-36 flex gap-2.5 overflow-x-auto pb-1 flex-shrink-0">
           {allParticipants.map((p) => (
-            <div key={p.id} className="w-40 sm:w-48 h-full flex-shrink-0">
+            <div key={p.id} className="h-full aspect-video flex-shrink-0">
               <VideoTile
                 participant={p}
                 stream={getStreamForParticipant(p.id)}
@@ -270,26 +270,28 @@ export function VideoGrid({
     return (
       <div className="flex-1 flex flex-col h-full gap-2.5 p-2 sm:p-3 overflow-hidden">
         {/* Main Active Speaker Stage */}
-        <div className="flex-1 min-h-0 relative">
-          <VideoTile
-            participant={speaker}
-            stream={getStreamForParticipant(speaker.id)}
-            isLocal={speaker.id === localParticipant.id}
-            isHostViewer={isHostViewer}
-            isCoHostViewer={isCoHostViewer}
-            isPinned={pinnedId === speaker.id}
-            onTogglePin={togglePin}
-            onToggleCoHost={onToggleCoHost}
-            onMuteParticipant={onMuteParticipant}
-            onKickParticipant={onKickParticipant}
-          />
+        <div className="flex-1 min-h-0 relative flex items-center justify-center">
+          <div className="w-full max-w-5xl h-full aspect-video max-h-full flex items-center justify-center">
+            <VideoTile
+              participant={speaker}
+              stream={getStreamForParticipant(speaker.id)}
+              isLocal={speaker.id === localParticipant.id}
+              isHostViewer={isHostViewer}
+              isCoHostViewer={isCoHostViewer}
+              isPinned={pinnedId === speaker.id}
+              onTogglePin={togglePin}
+              onToggleCoHost={onToggleCoHost}
+              onMuteParticipant={onMuteParticipant}
+              onKickParticipant={onKickParticipant}
+            />
+          </div>
         </div>
 
         {/* Thumbnail Filmstrip of Other Participants */}
         {otherParticipants.length > 0 && (
           <div className="h-28 sm:h-36 flex gap-2.5 overflow-x-auto pb-1 flex-shrink-0">
             {otherParticipants.map((p) => (
-              <div key={p.id} className="w-40 sm:w-48 h-full flex-shrink-0">
+              <div key={p.id} className="h-full aspect-video flex-shrink-0">
                 <VideoTile
                   participant={p}
                   stream={getStreamForParticipant(p.id)}
@@ -328,22 +330,23 @@ export function VideoGrid({
     return (
       <div className="flex-1 flex flex-col h-full gap-2.5 p-2 sm:p-3 overflow-hidden">
         {/* Multi-Speaker Stage */}
-        <div className="flex-1 min-h-0">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 h-full auto-rows-fr">
+        <div className="flex-1 min-h-0 flex items-center justify-center">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full h-full max-h-full items-center justify-items-center">
             {mainSpeakers.map((p) => (
-              <VideoTile
-                key={p.id}
-                participant={p}
-                stream={getStreamForParticipant(p.id)}
-                isLocal={p.id === localParticipant.id}
-                isHostViewer={isHostViewer}
-                isCoHostViewer={isCoHostViewer}
-                isPinned={pinnedId === p.id}
-                onTogglePin={togglePin}
-                onToggleCoHost={onToggleCoHost}
-                onMuteParticipant={onMuteParticipant}
-                onKickParticipant={onKickParticipant}
-              />
+              <div key={p.id} className="flex items-center justify-center w-full h-full min-h-0 min-w-0">
+                <VideoTile
+                  participant={p}
+                  stream={getStreamForParticipant(p.id)}
+                  isLocal={p.id === localParticipant.id}
+                  isHostViewer={isHostViewer}
+                  isCoHostViewer={isCoHostViewer}
+                  isPinned={pinnedId === p.id}
+                  onTogglePin={togglePin}
+                  onToggleCoHost={onToggleCoHost}
+                  onMuteParticipant={onMuteParticipant}
+                  onKickParticipant={onKickParticipant}
+                />
+              </div>
             ))}
           </div>
         </div>
@@ -352,7 +355,7 @@ export function VideoGrid({
         {filmstripParticipants.length > 0 && (
           <div className="h-28 sm:h-36 flex gap-2.5 overflow-x-auto pb-1 flex-shrink-0">
             {filmstripParticipants.map((p) => (
-              <div key={p.id} className="w-40 sm:w-48 h-full flex-shrink-0">
+              <div key={p.id} className="h-full aspect-video flex-shrink-0">
                 <VideoTile
                   participant={p}
                   stream={getStreamForParticipant(p.id)}
@@ -377,8 +380,8 @@ export function VideoGrid({
   // Single participant layout
   if (totalCount === 1) {
     return (
-      <div className="flex-1 h-full p-3 sm:p-4 flex items-center justify-center overflow-hidden">
-        <div className="w-full max-w-4xl h-full max-h-[85vh]">
+      <div className="flex-1 h-full p-2 sm:p-4 flex items-center justify-center overflow-hidden">
+        <div className="w-full max-w-5xl h-full aspect-video max-h-[calc(100vh-140px)] flex items-center justify-center">
           <VideoTile
             participant={localParticipant}
             stream={localStream}
@@ -408,34 +411,37 @@ export function VideoGrid({
   }
 
   return (
-    <div className="flex-1 h-full p-2 sm:p-3 overflow-y-auto">
-      <div className={`grid ${gridClasses} gap-2.5 sm:gap-3 h-full auto-rows-fr`}>
+    <div className="flex-1 h-full p-2 sm:p-3 overflow-y-auto flex items-center justify-center">
+      <div className={`grid ${gridClasses} gap-2.5 sm:gap-3 w-full h-full auto-rows-fr items-center justify-items-center`}>
         {/* Local user tile */}
-        <VideoTile
-          participant={localParticipant}
-          stream={localStream}
-          isLocal={true}
-          isHostViewer={isHostViewer}
-          isCoHostViewer={isCoHostViewer}
-          isPinned={pinnedId === localParticipant.id}
-          onTogglePin={togglePin}
-        />
+        <div className="flex items-center justify-center w-full h-full min-h-0 min-w-0">
+          <VideoTile
+            participant={localParticipant}
+            stream={localStream}
+            isLocal={true}
+            isHostViewer={isHostViewer}
+            isCoHostViewer={isCoHostViewer}
+            isPinned={pinnedId === localParticipant.id}
+            onTogglePin={togglePin}
+          />
+        </div>
 
         {/* Remote participant tiles */}
         {remoteParticipants.map((p) => (
-          <VideoTile
-            key={p.id}
-            participant={p}
-            stream={remoteStreams.get(p.id) || null}
-            isLocal={false}
-            isHostViewer={isHostViewer}
-            isCoHostViewer={isCoHostViewer}
-            isPinned={pinnedId === p.id}
-            onTogglePin={togglePin}
-            onToggleCoHost={onToggleCoHost}
-            onMuteParticipant={onMuteParticipant}
-            onKickParticipant={onKickParticipant}
-          />
+          <div key={p.id} className="flex items-center justify-center w-full h-full min-h-0 min-w-0">
+            <VideoTile
+              participant={p}
+              stream={remoteStreams.get(p.id) || null}
+              isLocal={false}
+              isHostViewer={isHostViewer}
+              isCoHostViewer={isCoHostViewer}
+              isPinned={pinnedId === p.id}
+              onTogglePin={togglePin}
+              onToggleCoHost={onToggleCoHost}
+              onMuteParticipant={onMuteParticipant}
+              onKickParticipant={onKickParticipant}
+            />
+          </div>
         ))}
       </div>
     </div>

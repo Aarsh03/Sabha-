@@ -65,7 +65,7 @@ export function MeetingControls({
   unreadChatCount,
   isCaptionsOn = true,
   isBraveMode = false,
-  captionLanguage = 'hi-IN',
+  captionLanguage = 'dual',
   onToggleCaptions,
   onChangeCaptionLanguage,
   onToggleAudio,
@@ -251,14 +251,14 @@ export function MeetingControls({
               title={
                 isCaptionsOn
                   ? isBraveMode
-                    ? 'Brave Shields AI Speech Transcription Active (Click to toggle)'
+                    ? 'Brave Shields active (Captions ON). Click to toggle.'
                     : 'Hide Live Captions'
                   : 'Show Live Captions'
               }
             >
               <Captions className={`w-4 h-4 sm:w-5 sm:h-5 sm:mb-1 ${isBraveMode && isCaptionsOn ? 'text-orange-400' : ''}`} />
               <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">
-                {isCaptionsOn ? (isBraveMode ? '🦁 AI CC' : 'CC On') : 'CC Off'}
+                {isCaptionsOn ? (isBraveMode ? '🦁 Brave' : 'CC On') : 'CC Off'}
               </span>
             </button>
 
@@ -267,13 +267,13 @@ export function MeetingControls({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const nextLang = captionLanguage === 'hi-IN' ? 'en-IN' : captionLanguage === 'en-IN' ? 'en-US' : 'hi-IN';
+                  const nextLang = captionLanguage === 'dual' ? 'en-IN' : captionLanguage === 'en-IN' ? 'hi-IN' : 'dual';
                   onChangeCaptionLanguage(nextLang);
                 }}
-                className="absolute -top-1.5 -right-1 px-1.5 py-0.5 rounded-md bg-slate-900 border border-amber-500/60 text-[8px] font-black text-amber-300 tracking-wider hover:bg-slate-800 transition cursor-pointer shadow-lg z-10"
-                title={`Spoken Language: ${captionLanguage === 'hi-IN' ? 'Hindi (हिन्दी)' : captionLanguage === 'en-IN' ? 'English (India)' : 'English (US)'}. Click to switch.`}
+                className="absolute -top-1.5 -right-2 px-1.5 py-0.5 rounded-md bg-slate-900 border border-amber-500/60 text-[8px] font-black text-amber-300 tracking-wider hover:bg-slate-800 transition cursor-pointer shadow-lg z-10 whitespace-nowrap"
+                title={`Caption Mode: ${captionLanguage === 'dual' ? 'Dual (हिन्दी + English simultaneously)' : captionLanguage === 'en-IN' ? 'English only' : 'हिन्दी only'}. Click to switch.`}
               >
-                {captionLanguage === 'hi-IN' ? 'हिन्दी' : captionLanguage === 'en-IN' ? 'EN-IN' : 'EN-US'}
+                {captionLanguage === 'dual' ? 'हिन्दी + EN' : captionLanguage === 'en-IN' ? 'EN' : 'हिन्दी'}
               </button>
             )}
           </div>

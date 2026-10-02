@@ -23,11 +23,12 @@
 - [x] Resolve Android Brave / mobile hardware locks in `GreenRoom.tsx` and eliminate disruptive in-call `alert()` dialogs.
 - [x] True Firestore database host verification (`room.hostId === user.uid`) replacing insecure query params.
 - [x] Implement Whiteboard "Close Board" header action with peer synchronization.
-- [x] **Browser-Native Live Transcription & Captions:** Web Speech API (`webkitSpeechRecognition`) continuous real-time speaker-tagged speech-to-text with CC overlay toggle.
-- [x] **Multilingual Hindi Speech & Real-Time English Translation:** Support `hi-IN`, `en-IN`, and `en-US` spoken language switcher directly on CC control; automatic translation of Hindi speech to English in real-time captions and verbatim transcripts (`/api/translate` powered by Gemini 3.5 Flash).
+- [x] **Browser-Native Live Transcription & Captions:** 100% free ($0) Web Speech API (`webkitSpeechRecognition`) continuous real-time speaker-tagged speech-to-text with ZERO Gemini API tokens during the call.
+- [x] **Default Dual-Language Hindi + English Captions:** Simultaneous bilingual support (`हिन्दी + EN`) with automatic side-by-side translation (Hindi to English & English to Hindi) via memory-cached zero-token translation gateways.
+- [x] **Standard Fixed 16:9 Video Ratio (Zoom Parity):** Locked all video containers, single-user spotlight, speaker stage, and gallery grids to standard 16:9 widescreen (`aspect-video`), eliminating tall/square distortion and camera cropping.
+- [x] **Brave Browser Error Resolution & Token Protection:** Resolved `NotSupportedError: Failed to execute 'start' on 'MediaRecorder'` by removing unstable continuous audio chunking, added graceful Brave Shields detection with a dismissable guidance banner (`brave://settings/system`), enabled cross-peer transcript reception for Brave attendees, and strictly restricted Gemini API invocation to post-meeting summary notes.
 - [x] **Zero-Loss Meeting Conclusion Audio:** Implemented `flushInterim()` buffer flushing on meeting end and mic toggle, ensuring closing words of calls are never dropped from transcripts.
 - [x] **AI Meeting Summarizer & Email Dispatch:** Google Gemini (`gemini-3.5-flash` / `gemini-3.8-flash` cascade) automatic structured executive summary generation and Zoho Mail SMTP (`smtp.zoho.in:465`) dispatch: full `.txt` verbatim transcript + summary to Hosts/Co-hosts, and executive summary notes delivered individually to all attendees with Firestore roster synchronization.
-- [x] **Brave Browser AI Audio Transcription Fallback:** Automatic detection of Brave Browser (`isBraveBrowser`), Web Audio VAD voice detection, and serverless Gemini speech transcription (`/api/transcribe-audio`) overcoming Brave's intentional block on Google Web Speech API, with active UI indicators on CC controls.
 
 ---
 

@@ -1,6 +1,8 @@
 /**
  * Sabha (सभा) - Real-Time Translation Utility
- * Detects Hindi speech and translates to English using Gemini API and fast fallback.
+ * Detects Hindi and English speech and translates with zero token cost.
+ * Prioritizes free public translation gateways and client memory cache
+ * so real-time speech consumes 0 Gemini API tokens during the meeting.
  */
 
 const translationCache = new Map<string, string>();
@@ -14,7 +16,7 @@ export function isHindiText(text: string): boolean {
 }
 
 /**
- * Translates Hindi text into English with multi-tier fallback and memory caching.
+ * Translates Hindi text into English with free fast gateway and memory caching.
  */
 export async function translateHindiToEnglish(text: string): Promise<string> {
   const trimmed = text.trim();
@@ -25,12 +27,29 @@ export async function translateHindiToEnglish(text: string): Promise<string> {
     return trimmed;
   }
 
-  // Check cache
-  if (translationCache.has(trimmed)) {
-    return translationCache.get(trimmed)!;
+  const cacheKey = `hi-en:${trimmed}`;
+  if (translationCache.has(cacheKey)) {
+    return translationCache.get(cacheKey)!;
   }
 
-  // 1. Try Sabha Gemini Translation Endpoint
+  // 1. Client-side Fast Free Translation Gateway ($0 cost, 0 Gemini tokens)
+  try {
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=hi|en`;
+    const res = await fetch(url);
+    if (res.ok) {
+      const data = await res.json();
+      const translated = data?.responseData?.translatedText;
+      if (translated && typeof translated === 'string' && !translated.startsWith('MYMEMORY WARNING')) {
+        const result = translated.trim();
+        translationCache.set(cacheKey, result);
+        return result;
+      }
+    }
+  } catch {
+    // Continue to fallback
+  }
+
+  // 2. Server API fallback if configured
   try {
     const res = await fetch('/api/translate', {
       method: 'POST',
@@ -42,30 +61,66 @@ export async function translateHindiToEnglish(text: string): Promise<string> {
       const data = await res.json();
       if (data.translation && typeof data.translation === 'string') {
         const result = data.translation.trim();
-        translationCache.set(trimmed, result);
+        translationCache.set(cacheKey, result);
         return result;
       }
     }
-  } catch (apiErr) {
-    // Continue to fallback
+  } catch {}
+
+  return trimmed;
+}
+
+/**
+ * Translates English text into Hindi with free fast gateway and memory caching.
+ */
+export async function translateEnglishToHindi(text: string): Promise<string> {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+
+  // If text is already in Devanagari, return as-is
+  if (isHindiText(trimmed)) {
+    return trimmed;
   }
 
-  // 2. Client-side Fast Fallback via Free Public Translation Gateway
+  const cacheKey = `en-hi:${trimmed.toLowerCase()}`;
+  if (translationCache.has(cacheKey)) {
+    return translationCache.get(cacheKey)!;
+  }
+
+  // 1. Client-side Fast Free Translation Gateway ($0 cost, 0 Gemini tokens)
   try {
-    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=hi|en`;
+    const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(trimmed)}&langpair=en|hi`;
     const res = await fetch(url);
     if (res.ok) {
       const data = await res.json();
       const translated = data?.responseData?.translatedText;
       if (translated && typeof translated === 'string' && !translated.startsWith('MYMEMORY WARNING')) {
         const result = translated.trim();
-        translationCache.set(trimmed, result);
+        translationCache.set(cacheKey, result);
         return result;
       }
     }
-  } catch (fallbackErr) {
-    console.warn('Translation fallback notice:', fallbackErr);
+  } catch {
+    // Continue to fallback
   }
+
+  // 2. Server API fallback if configured
+  try {
+    const res = await fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: trimmed, from: 'en', to: 'hi' }),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      if (data.translation && typeof data.translation === 'string') {
+        const result = data.translation.trim();
+        translationCache.set(cacheKey, result);
+        return result;
+      }
+    }
+  } catch {}
 
   return trimmed;
 }

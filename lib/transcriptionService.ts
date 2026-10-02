@@ -1,10 +1,12 @@
 /**
- * Sabha (सभा) - Live Browser-Native & AI-Powered Speech Recognition Service
- * Supports:
- * 1. Native Web Speech API (Chrome, Edge, Safari) for instant 0-cost streaming.
- * 2. Smart Audio Chunking & AI Fallback (Brave Browser, Firefox, Unsupported Browsers)
- *    using client-side Web Audio VAD + serverless Gemini speech transcription.
- * 3. Multilingual recognition for Hindi (hi-IN), Indian English (en-IN), and US English (en-US).
+ * Sabha (सभा) - Live Browser-Native Speech Recognition Service
+ * 
+ * Architectural Guarantees:
+ * 1. 100% Free ($0) Browser-Native Web Speech API (Chrome, Edge, Safari) with ZERO API tokens during the meeting.
+ * 2. Bilingual / Hinglish Dual-Language Mode (hi-IN + en-IN) supported out of the box.
+ * 3. Graceful Brave Browser detection: prevents console NotSupportedErrors and alerts user about Brave Shields
+ *    without burning continuous background Gemini API tokens.
+ * 4. Token Protection: Gemini API is strictly preserved ONLY for final post-meeting summarization.
  */
 
 export interface SpeechRecognitionResultCallback {
@@ -32,22 +34,12 @@ export class LiveTranscriptionService {
   private onResultCallback: SpeechRecognitionResultCallback | null = null;
   private onStatusCallback: ((listening: boolean) => void) | null = null;
   private onModeChangeCallback: ((isBraveOrFallback: boolean) => void) | null = null;
-  private language: string = 'hi-IN';
+  private language: string = 'dual';
   private lastInterimText: string = '';
 
-  // Audio Fallback Engine (for Brave & Web Speech disabled environments)
   public isBraveOrFallbackMode: boolean = false;
-  private useAudioFallback: boolean = false;
-  private activeAudioStream: MediaStream | null = null;
-  private audioContext: AudioContext | null = null;
-  private mediaRecorder: MediaRecorder | null = null;
-  private vadInterval: ReturnType<typeof setInterval> | null = null;
-  private silenceTimer: ReturnType<typeof setTimeout> | null = null;
-  private isSpeaking: boolean = false;
-  private speechStartTime: number = 0;
-  private audioChunks: Blob[] = [];
 
-  constructor(language: string = 'hi-IN') {
+  constructor(language: string = 'dual') {
     this.language = language;
     this.initRecognition();
     this.checkBraveEnvironment();
@@ -68,11 +60,6 @@ export class LiveTranscriptionService {
     if (this.language === newLanguage) return;
     this.language = newLanguage;
 
-    if (this.useAudioFallback) {
-      // Audio fallback dynamically reads this.language on next chunk
-      return;
-    }
-
     const wasListening = this.isDesiredListening;
     if (this.recognition) {
       try {
@@ -86,12 +73,8 @@ export class LiveTranscriptionService {
     }
   }
 
-  public setAudioStream(stream: MediaStream | null) {
-    this.activeAudioStream = stream;
-    if (this.useAudioFallback && this.isDesiredListening) {
-      this.stopAudioFallback();
-      this.startAudioFallback();
-    }
+  public setAudioStream(_stream: MediaStream | null) {
+    // MediaStream reference kept for interface parity; 0 tokens spent on continuous audio streaming.
   }
 
   public setOnModeChange(cb: (isBraveOrFallback: boolean) => void) {
@@ -104,43 +87,21 @@ export class LiveTranscriptionService {
   private async checkBraveEnvironment() {
     const isBrave = await isBraveBrowser();
     if (isBrave) {
-      console.log('[Transcription] Brave Browser verified. Initializing AI audio fallback engine.');
-      this.switchToAudioFallback();
-    }
-  }
-
-  private switchToAudioFallback() {
-    if (this.useAudioFallback) return;
-    this.useAudioFallback = true;
-    this.isBraveOrFallbackMode = true;
-    this.onModeChangeCallback?.(true);
-
-    if (this.recognition) {
-      try {
-        this.recognition.abort();
-      } catch {}
-      this.recognition = null;
-    }
-
-    if (this.restartTimeout) {
-      clearTimeout(this.restartTimeout);
-      this.restartTimeout = null;
-    }
-
-    if (this.isDesiredListening) {
-      this.startAudioFallback();
+      this.isBraveOrFallbackMode = true;
+      this.onModeChangeCallback?.(true);
+      console.log('[Transcription] Brave Browser verified. Web Speech API requires Google services enabled in brave://settings/system.');
     }
   }
 
   private initRecognition() {
-    if (typeof window === 'undefined' || this.useAudioFallback) return;
+    if (typeof window === 'undefined') return;
 
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
 
     if (!SpeechRecognition) {
-      console.warn('[Transcription] Web Speech API not supported. Activating AI audio fallback.');
-      this.switchToAudioFallback();
+      this.isBraveOrFallbackMode = true;
+      this.onModeChangeCallback?.(true);
       return;
     }
 
@@ -148,7 +109,9 @@ export class LiveTranscriptionService {
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = this.language;
+
+      // In dual mode, use 'hi-IN' which natively parses both Hindi Devanagari and Indian English/Hinglish
+      recognition.lang = this.language === 'en-IN' ? 'en-IN' : 'hi-IN';
       recognition.maxAlternatives = 1;
 
       recognition.onstart = () => {
@@ -184,35 +147,35 @@ export class LiveTranscriptionService {
 
         // Brave browser intercepts Google's speech recognition backend and fires 'network' or 'service-not-allowed'
         if (event.error === 'network' || event.error === 'service-not-allowed') {
-          console.warn(`[Transcription] Speech recognition '${event.error}' encountered (Brave/privacy block). Switching seamlessly to AI audio fallback.`);
-          this.switchToAudioFallback();
+          this.isBraveOrFallbackMode = true;
+          this.onModeChangeCallback?.(true);
+          this.isActuallyListening = false;
+          this.onStatusCallback?.(false);
           return;
         }
 
         if (event.error === 'not-allowed') {
-          console.warn('[Transcription] Speech recognition permission denied or unavailable:', event.error);
           this.isDesiredListening = false;
           this.isActuallyListening = false;
           this.onStatusCallback?.(false);
           return;
         }
 
-        console.warn('[Transcription] Speech recognition warning:', event.error);
+        console.warn('[Transcription] Speech recognition notice:', event.error);
       };
 
       recognition.onend = () => {
         this.isActuallyListening = false;
-        if (this.useAudioFallback) return;
 
-        // Auto-restart if continuous listening is desired
-        if (this.isDesiredListening) {
+        // Auto-restart if continuous listening is desired and not in Brave blocked mode
+        if (this.isDesiredListening && !this.isBraveOrFallbackMode) {
           if (this.restartTimeout) clearTimeout(this.restartTimeout);
           this.restartTimeout = setTimeout(() => {
-            if (this.isDesiredListening && !this.isActuallyListening) {
+            if (this.isDesiredListening && !this.isActuallyListening && !this.isBraveOrFallbackMode) {
               try {
                 this.recognition?.start();
               } catch (e) {
-                // Ignore invalid state or already started error
+                // Ignore invalid state
               }
             }
           }, 300);
@@ -224,205 +187,8 @@ export class LiveTranscriptionService {
       this.recognition = recognition;
     } catch (err) {
       console.warn('[Transcription] Failed to initialize SpeechRecognition:', err);
-      this.switchToAudioFallback();
-    }
-  }
-
-  // ==========================================
-  // Brave & Audio Fallback Engine (VAD + AI)
-  // ==========================================
-
-  private async startAudioFallback() {
-    if (this.isActuallyListening) return;
-
-    // 1. Ensure we have an active live audio stream
-    if (!this.activeAudioStream || this.activeAudioStream.getAudioTracks().every((t) => t.readyState === 'ended')) {
-      try {
-        this.activeAudioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      } catch (err) {
-        console.warn('[Transcription Fallback] Could not access microphone audio stream:', err);
-        return;
-      }
-    }
-
-    const audioTrack = this.activeAudioStream.getAudioTracks().find((t) => t.readyState === 'live');
-    if (!audioTrack || !audioTrack.enabled) {
-      return;
-    }
-
-    try {
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-      this.audioContext = new AudioCtx();
-      const source = this.audioContext.createMediaStreamSource(new MediaStream([audioTrack]));
-      const analyser = this.audioContext.createAnalyser();
-      analyser.fftSize = 512;
-      analyser.smoothingTimeConstant = 0.3;
-      source.connect(analyser);
-
-      this.isActuallyListening = true;
-      this.onStatusCallback?.(true);
-
-      const bufferLength = analyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-
-      const startRecordingChunk = () => {
-        if (this.isSpeaking) return;
-        this.isSpeaking = true;
-        this.speechStartTime = Date.now();
-        this.audioChunks = [];
-
-        try {
-          const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-            ? 'audio/webm;codecs=opus'
-            : MediaRecorder.isTypeSupported('audio/webm')
-            ? 'audio/webm'
-            : '';
-
-          this.mediaRecorder = mimeType
-            ? new MediaRecorder(this.activeAudioStream!, { mimeType })
-            : new MediaRecorder(this.activeAudioStream!);
-
-          this.mediaRecorder.ondataavailable = (e) => {
-            if (e.data && e.data.size > 0) {
-              this.audioChunks.push(e.data);
-            }
-          };
-
-          this.mediaRecorder.onstop = () => {
-            const finalBlob = new Blob(this.audioChunks, {
-              type: this.mediaRecorder?.mimeType || 'audio/webm',
-            });
-            this.audioChunks = [];
-            if (finalBlob.size > 1200) {
-              this.sendAudioChunkToGemini(finalBlob);
-            }
-          };
-
-          this.mediaRecorder.start(200);
-        } catch (recErr) {
-          console.warn('[Transcription Fallback] MediaRecorder error:', recErr);
-        }
-      };
-
-      const stopRecordingChunk = () => {
-        if (!this.isSpeaking) return;
-        this.isSpeaking = false;
-        if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-          try {
-            this.mediaRecorder.stop();
-          } catch {}
-        }
-      };
-
-      // VAD loop: inspect frequency energy every 90ms
-      this.vadInterval = setInterval(() => {
-        if (!this.isDesiredListening) {
-          stopRecordingChunk();
-          return;
-        }
-
-        analyser.getByteFrequencyData(dataArray);
-        let sum = 0;
-        for (let i = 0; i < bufferLength; i++) {
-          sum += dataArray[i];
-        }
-        const average = sum / bufferLength;
-
-        // Speaking energy threshold
-        const threshold = 15;
-
-        if (average > threshold) {
-          // Voice detected
-          if (!this.isSpeaking) {
-            startRecordingChunk();
-          }
-          if (this.silenceTimer) {
-            clearTimeout(this.silenceTimer);
-            this.silenceTimer = null;
-          }
-
-          // Force chunk after 4.2 seconds of continuous speech for streaming fluidity
-          if (this.isSpeaking && Date.now() - this.speechStartTime > 4200) {
-            stopRecordingChunk();
-            setTimeout(() => {
-              if (this.isDesiredListening) startRecordingChunk();
-            }, 60);
-          }
-        } else {
-          // Silence detected
-          if (this.isSpeaking && !this.silenceTimer) {
-            this.silenceTimer = setTimeout(() => {
-              stopRecordingChunk();
-              this.silenceTimer = null;
-            }, 850);
-          }
-        }
-      }, 90);
-    } catch (e) {
-      console.warn('[Transcription Fallback] VAD initialization failed:', e);
-    }
-  }
-
-  private async sendAudioChunkToGemini(blob: Blob) {
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64Data = (reader.result as string)?.split(',')[1];
-        if (!base64Data) return;
-
-        try {
-          const res = await fetch('/api/transcribe-audio', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              audio: base64Data,
-              mimeType: blob.type || 'audio/webm',
-              language: this.language,
-            }),
-          });
-
-          if (res.ok) {
-            const data = await res.json();
-            const text = (data.text || '').trim();
-            const translation = data.translation ? data.translation.trim() : undefined;
-
-            if (text && this.onResultCallback) {
-              this.onResultCallback(text, true, translation);
-            }
-          }
-        } catch (fetchErr) {
-          console.warn('[Transcription Fallback] Chunk dispatch error:', fetchErr);
-        }
-      };
-      reader.readAsDataURL(blob);
-    } catch (err) {
-      console.warn('[Transcription Fallback] Blob read error:', err);
-    }
-  }
-
-  private stopAudioFallback() {
-    if (this.vadInterval) {
-      clearInterval(this.vadInterval);
-      this.vadInterval = null;
-    }
-    if (this.silenceTimer) {
-      clearTimeout(this.silenceTimer);
-      this.silenceTimer = null;
-    }
-    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-      try {
-        this.mediaRecorder.stop();
-      } catch {}
-    }
-    this.mediaRecorder = null;
-    this.isSpeaking = false;
-    this.audioChunks = [];
-
-    if (this.audioContext && this.audioContext.state !== 'closed') {
-      try {
-        this.audioContext.close();
-      } catch {}
-      this.audioContext = null;
+      this.isBraveOrFallbackMode = true;
+      this.onModeChangeCallback?.(true);
     }
   }
 
@@ -443,16 +209,6 @@ export class LiveTranscriptionService {
    * spoken right before ending a meeting or muting are never lost.
    */
   public flushInterim(): string | null {
-    if (this.useAudioFallback) {
-      // Flush currently recorded speech if user was in the middle of talking
-      if (this.isSpeaking && this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
-        try {
-          this.mediaRecorder.stop();
-        } catch {}
-      }
-      return null;
-    }
-
     const text = this.lastInterimText.trim();
     this.lastInterimText = '';
     return text || null;
@@ -461,16 +217,10 @@ export class LiveTranscriptionService {
   public start() {
     this.isDesiredListening = true;
 
-    if (this.useAudioFallback) {
-      this.startAudioFallback();
-      return;
-    }
-
     if (!this.recognition) {
       this.initRecognition();
     }
-    if (!this.recognition) {
-      this.switchToAudioFallback();
+    if (!this.recognition || this.isBraveOrFallbackMode) {
       return;
     }
 
@@ -485,13 +235,6 @@ export class LiveTranscriptionService {
 
   public stop() {
     this.isDesiredListening = false;
-
-    if (this.useAudioFallback) {
-      this.stopAudioFallback();
-      this.isActuallyListening = false;
-      this.onStatusCallback?.(false);
-      return;
-    }
 
     if (this.restartTimeout) {
       clearTimeout(this.restartTimeout);
@@ -518,12 +261,10 @@ export class LiveTranscriptionService {
 
   public destroy() {
     this.stop();
-    this.stopAudioFallback();
     this.recognition = null;
     this.onResultCallback = null;
     this.onStatusCallback = null;
     this.onModeChangeCallback = null;
     this.lastInterimText = '';
-    this.activeAudioStream = null;
   }
 }

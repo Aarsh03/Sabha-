@@ -22,7 +22,7 @@ import {
   updateParticipantRole,
   registerParticipant,
 } from '@/lib/roomService';
-import { isHindiText, translateHindiToEnglish } from '@/lib/translation';
+import { isHindiText, translateHindiToEnglish, translateEnglishToHindi } from '@/lib/translation';
 import { useAuth } from '@/lib/authContext';
 import { VideoGrid } from './VideoGrid';
 import { MeetingControls } from './MeetingControls';
@@ -122,7 +122,8 @@ export function MeetingRoom({
   const transcriptRef = useRef<TranscriptItem[]>([]);
   const [isCaptionsOn, setIsCaptionsOn] = useState<boolean>(true);
   const [isBraveActive, setIsBraveActive] = useState<boolean>(false);
-  const [captionLanguage, setCaptionLanguage] = useState<string>('hi-IN');
+  const [dismissBraveNotice, setDismissBraveNotice] = useState<boolean>(false);
+  const [captionLanguage, setCaptionLanguage] = useState<string>('dual');
   const [latestLiveCaption, setLatestLiveCaption] = useState<{
     senderName: string;
     text: string;
@@ -536,7 +537,7 @@ export function MeetingRoom({
         isFinal,
       };
 
-      // 1. If translation is already provided by Gemini AI Audio Transcriber
+      // 1. If translation is already provided
       if (translation && translation !== text) {
         handleUpdateLiveCaption(localParticipant.name || 'You', text, translation);
 
@@ -561,7 +562,7 @@ export function MeetingRoom({
         return;
       }
 
-      // 2. Client-side Hindi translation if recognized text has Devanagari characters
+      // 2. Hindi speech: provide instant English translation
       if (isHindiText(text)) {
         translateHindiToEnglish(text).then((trans) => {
           handleUpdateLiveCaption(localParticipant.name || 'You', text, trans);
@@ -585,7 +586,32 @@ export function MeetingRoom({
             }
           }
         });
+      } else if (captionLanguage === 'dual') {
+        // 3. Spoken in English in Dual Mode: provide instant Hindi translation
+        translateEnglishToHindi(text).then((trans) => {
+          handleUpdateLiveCaption(localParticipant.name || 'You', text, trans);
+
+          if (isFinal) {
+            const itemWithTrans: TranscriptItem = {
+              ...baseItem,
+              translation: trans,
+            };
+            transcriptRef.current.push(itemWithTrans);
+            setTranscript((prev) => [...prev, itemWithTrans]);
+
+            // Broadcast to peers via active media engine
+            if (isLiveKitSFU && liveKitManagerRef.current) {
+              liveKitManagerRef.current.sendData({
+                type: 'transcript-chunk',
+                item: itemWithTrans,
+              });
+            } else if (rtcManagerRef.current) {
+              rtcManagerRef.current.sendTranscriptItem(itemWithTrans);
+            }
+          }
+        });
       } else {
+        // 4. Single-language English mode
         handleUpdateLiveCaption(localParticipant.name || 'You', text);
 
         if (isFinal) {
@@ -1226,6 +1252,11 @@ export function MeetingRoom({
             const trans = await translateHindiToEnglish(flushed);
             flushedItem.translation = trans;
           } catch {}
+        } else if (captionLanguage === 'dual') {
+          try {
+            const trans = await translateEnglishToHindi(flushed);
+            flushedItem.translation = trans;
+          } catch {}
         }
         transcriptRef.current.push(flushedItem);
       }
@@ -1619,7 +1650,7 @@ export function MeetingRoom({
               <span className="text-amber-400 font-bold text-xs">{latestLiveCaption.senderName}</span>
               {latestLiveCaption.translation && latestLiveCaption.translation !== latestLiveCaption.text && (
                 <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 font-bold rounded uppercase tracking-wider">
-                  English Translation
+                  {isHindiText(latestLiveCaption.text) ? 'English Translation' : 'हिन्दी अनुवाद'}
                 </span>
               )}
             </div>
@@ -1631,6 +1662,25 @@ export function MeetingRoom({
                 &ldquo;{latestLiveCaption.translation}&rdquo;
               </div>
             )}
+          </div>
+        )}
+
+        {/* Brave Browser Shields Notice Banner */}
+        {isBraveActive && !dismissBraveNotice && (
+          <div className="absolute top-16 left-1/2 -translate-x-1/2 max-w-xl w-[92%] sm:w-auto px-4 py-2.5 rounded-xl bg-orange-950/90 border border-orange-500/60 backdrop-blur-md text-orange-200 text-xs flex items-center justify-between gap-3 shadow-2xl z-30 animate-in fade-in slide-in-from-top-2 duration-200">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base">🦁</span>
+              <span className="leading-snug">
+                <strong>Brave Browser notice:</strong> Brave Shields blocks speech recognition by default. To enable your mic transcription, toggle &apos;Use Google services for speech recognition&apos; in <code className="bg-orange-900/60 px-1 py-0.5 rounded text-[11px] font-mono">brave://settings/system</code> or use Chrome / Edge. You will still hear everyone and receive transcripts!
+              </span>
+            </div>
+            <button
+              onClick={() => setDismissBraveNotice(true)}
+              className="text-orange-400 hover:text-white p-1 rounded-md transition text-sm font-bold flex-shrink-0 cursor-pointer"
+              title="Dismiss"
+            >
+              ✕
+            </button>
           </div>
         )}
       </div>
