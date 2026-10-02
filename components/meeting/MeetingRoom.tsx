@@ -124,6 +124,11 @@ export function MeetingRoom({
   const [isBraveActive, setIsBraveActive] = useState<boolean>(false);
   const [dismissBraveNotice, setDismissBraveNotice] = useState<boolean>(false);
   const [captionLanguage, setCaptionLanguage] = useState<string>('dual');
+  const captionLanguageRef = useRef<string>(captionLanguage);
+  useEffect(() => {
+    captionLanguageRef.current = captionLanguage;
+  }, [captionLanguage]);
+
   const [latestLiveCaption, setLatestLiveCaption] = useState<{
     senderName: string;
     text: string;
@@ -149,16 +154,33 @@ export function MeetingRoom({
   };
 
   const handleAppendTranscriptItem = (item: TranscriptItem) => {
-    formatCaptionForUserPreference(item.text, captionLanguage).then(
-      ({ primaryText, secondaryText, badgeLabel }) => {
-        handleUpdateLiveCaption(item.senderName, primaryText, secondaryText, badgeLabel);
-      }
-    );
+    if (!item || !item.text) return;
+
+    // 1. Immediately render caption with 0ms latency so Chrome never shows a blank screen
+    handleUpdateLiveCaption(item.senderName, item.text);
+
+    // 2. Format according to current active language preference
+    const activeTarget = captionLanguageRef.current || 'dual';
+    formatCaptionForUserPreference(item.text, activeTarget)
+      .then(({ primaryText, secondaryText, badgeLabel }) => {
+        if (primaryText) {
+          handleUpdateLiveCaption(item.senderName, primaryText, secondaryText, badgeLabel);
+        }
+      })
+      .catch((err) => {
+        console.warn('[Captions] Translation notice:', err);
+      });
+
     if (item.isFinal) {
       transcriptRef.current.push(item);
       setTranscript((prev) => [...prev, item]);
     }
   };
+
+  const handleAppendTranscriptItemRef = useRef(handleAppendTranscriptItem);
+  useEffect(() => {
+    handleAppendTranscriptItemRef.current = handleAppendTranscriptItem;
+  });
 
   // Zoom-style View Switcher & Top-Bar State
   const [viewMode, setViewMode] = useState<'gallery' | 'speaker' | 'multi-speaker'>('gallery');
@@ -303,7 +325,7 @@ export function MeetingRoom({
               if (payload?.type === 'whiteboard') {
                 setIncomingDrawEvent(payload.event);
               } else if (payload?.type === 'transcript-chunk' && payload.item) {
-                handleAppendTranscriptItem(payload.item);
+                handleAppendTranscriptItemRef.current(payload.item);
               }
             };
 
@@ -440,7 +462,7 @@ export function MeetingRoom({
         };
 
         manager.onTranscriptReceived = (item) => {
-          handleAppendTranscriptItem(item);
+          handleAppendTranscriptItemRef.current(item);
         };
 
         await manager.joinRoom();
@@ -547,31 +569,42 @@ export function MeetingRoom({
         isFinal,
       };
 
-      formatCaptionForUserPreference(text, captionLanguage).then(
-        ({ primaryText, secondaryText, badgeLabel }) => {
-          handleUpdateLiveCaption(localParticipant.name || 'You', primaryText, secondaryText, badgeLabel);
+      // 1. Immediately render own caption locally with 0ms latency
+      handleUpdateLiveCaption(localParticipant.name || 'You', text);
 
-          if (isFinal) {
-            const itemWithTrans: TranscriptItem = {
-              ...baseItem,
-              text,
-              translation: secondaryText || translation,
-            };
-            transcriptRef.current.push(itemWithTrans);
-            setTranscript((prev) => [...prev, itemWithTrans]);
+      // 2. Broadcast raw spoken text immediately so all peers receive speech in real time
+      const itemToBroadcast: TranscriptItem = {
+        ...baseItem,
+        text,
+        translation,
+      };
 
-            // Broadcast to peers via active media engine
-            if (isLiveKitSFU && liveKitManagerRef.current) {
-              liveKitManagerRef.current.sendData({
-                type: 'transcript-chunk',
-                item: itemWithTrans,
-              });
-            } else if (rtcManagerRef.current) {
-              rtcManagerRef.current.sendTranscriptItem(itemWithTrans);
-            }
+      if (liveKitManagerRef.current) {
+        liveKitManagerRef.current.sendData({
+          type: 'transcript-chunk',
+          item: itemToBroadcast,
+        });
+      }
+      if (rtcManagerRef.current) {
+        rtcManagerRef.current.sendTranscriptItem(itemToBroadcast);
+      }
+
+      if (isFinal) {
+        transcriptRef.current.push(itemToBroadcast);
+        setTranscript((prev) => [...prev, itemToBroadcast]);
+      }
+
+      // 3. Format local caption according to user's chosen target language
+      const targetLang = captionLanguageRef.current || 'dual';
+      formatCaptionForUserPreference(text, targetLang)
+        .then(({ primaryText, secondaryText, badgeLabel }) => {
+          if (primaryText) {
+            handleUpdateLiveCaption(localParticipant.name || 'You', primaryText, secondaryText, badgeLabel);
           }
-        }
-      );
+        })
+        .catch((err) => {
+          console.warn('[Captions] Local formatting notice:', err);
+        });
     });
 
     if (localParticipant.audioEnabled) {
@@ -1657,7 +1690,17 @@ export function MeetingRoom({
         onToggleCaptions={() => setIsCaptionsOn((prev) => !prev)}
         onChangeCaptionLanguage={(lang) => {
           setCaptionLanguage(lang);
+          captionLanguageRef.current = lang;
           transcriptionServiceRef.current?.setLanguage(lang);
+          if (latestLiveCaption?.text) {
+            formatCaptionForUserPreference(latestLiveCaption.text, lang)
+              .then(({ primaryText, secondaryText, badgeLabel }) => {
+                if (primaryText) {
+                  handleUpdateLiveCaption(latestLiveCaption.senderName, primaryText, secondaryText, badgeLabel);
+                }
+              })
+              .catch(() => {});
+          }
         }}
         onToggleAudio={handleToggleAudio}
         onToggleVideo={handleToggleVideo}

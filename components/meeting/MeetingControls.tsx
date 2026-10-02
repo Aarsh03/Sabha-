@@ -276,7 +276,7 @@ export function MeetingControls({
                   e.stopPropagation();
                   setShowLanguageMenu((prev) => !prev);
                 }}
-                className="absolute -top-1.5 -right-2 px-1.5 py-0.5 rounded-md bg-slate-900 border border-amber-500/60 text-[8px] font-black text-amber-300 tracking-wider hover:bg-slate-800 transition cursor-pointer shadow-lg z-10 flex items-center gap-0.5 whitespace-nowrap"
+                className="absolute -top-2 -right-3 px-2 py-0.5 rounded-full bg-slate-900 border border-amber-500/70 text-[9px] font-bold text-amber-300 tracking-wider hover:bg-slate-800 transition cursor-pointer shadow-lg z-10 flex items-center gap-1 whitespace-nowrap hover:scale-105 active:scale-95"
                 title="Change Subtitle Language. Click to choose Hindi, English, Marathi, Tamil, etc."
               >
                 <span>
@@ -288,7 +288,7 @@ export function MeetingControls({
                     ? 'EN'
                     : SUPPORTED_LANGUAGES.find((l) => l.code === captionLanguage)?.nativeName || captionLanguage.toUpperCase()}
                 </span>
-                <ChevronDown className="w-2.5 h-2.5 opacity-70" />
+                <ChevronDown className="w-2.5 h-2.5 opacity-80" />
               </button>
             )}
 

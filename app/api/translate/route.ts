@@ -32,7 +32,11 @@ export async function POST(req: NextRequest) {
       if (res.ok) {
         const data = await res.json();
         const translated = data?.responseData?.translatedText;
-        if (translated && typeof translated === 'string' && !translated.startsWith('MYMEMORY WARNING')) {
+        if (translated && typeof translated === 'string') {
+          if (translated.includes('PLEASE SELECT TWO DISTINCT LANGUAGES') || translated.startsWith('MYMEMORY WARNING')) {
+            serverTranslationCache.set(cacheKey, trimmed);
+            return NextResponse.json({ translation: trimmed });
+          }
           const cleanResult = translated.trim();
           serverTranslationCache.set(cacheKey, cleanResult);
           return NextResponse.json({ translation: cleanResult });

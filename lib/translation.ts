@@ -72,7 +72,11 @@ export async function translateText(text: string, fromLang: string, toLang: stri
     if (res.ok) {
       const data = await res.json();
       const translated = data?.responseData?.translatedText;
-      if (translated && typeof translated === 'string' && !translated.startsWith('MYMEMORY WARNING')) {
+      if (translated && typeof translated === 'string') {
+        if (translated.includes('PLEASE SELECT TWO DISTINCT LANGUAGES') || translated.startsWith('MYMEMORY WARNING')) {
+          translationCache.set(cacheKey, trimmed);
+          return trimmed;
+        }
         const result = translated.trim();
         translationCache.set(cacheKey, result);
         return result;
@@ -131,36 +135,31 @@ export async function formatCaptionForUserPreference(
   rawText: string,
   targetMode: string
 ): Promise<FormattedCaptionResult> {
-  const text = rawText.trim();
+  const text = (rawText || '').trim();
   if (!text) {
     return { primaryText: '' };
   }
 
   const hasHindi = isHindiText(text);
 
-  // 1. Hindi Only Mode: Translate everything into pure Hindi
+  // 1. Hindi Only Mode: Translate everything into pure Hindi with NO secondary text
   if (targetMode === 'hindi_only') {
     if (hasHindi) {
-      return { primaryText: text };
+      return { primaryText: text, badgeLabel: 'हिन्दी' };
     }
-    const hindiTrans = await translateText(text, 'en', 'hi');
+    const hindiTrans = await translateText(text, 'autodetect', 'hi');
     return {
       primaryText: hindiTrans,
-      secondaryText: hindiTrans !== text ? text : undefined,
-      badgeLabel: 'हिन्दी अनुवाद',
+      badgeLabel: 'हिन्दी',
     };
   }
 
-  // 2. English Only Mode: Translate everything into pure English
+  // 2. English Only Mode: Translate everything into pure English with NO secondary text
   if (targetMode === 'english_only') {
-    if (!hasHindi) {
-      return { primaryText: text };
-    }
-    const engTrans = await translateText(text, 'hi', 'en');
+    const engTrans = await translateText(text, 'autodetect', 'en');
     return {
       primaryText: engTrans,
-      secondaryText: engTrans !== text ? text : undefined,
-      badgeLabel: 'English Translation',
+      badgeLabel: 'English',
     };
   }
 
@@ -171,27 +170,25 @@ export async function formatCaptionForUserPreference(
       return {
         primaryText: text,
         secondaryText: engTrans !== text ? engTrans : undefined,
-        badgeLabel: 'English Translation',
+        badgeLabel: 'हिन्दी + English',
       };
     } else {
-      const hindiTrans = await translateText(text, 'en', 'hi');
+      const hindiTrans = await translateText(text, 'autodetect', 'hi');
       return {
         primaryText: text,
         secondaryText: hindiTrans !== text ? hindiTrans : undefined,
-        badgeLabel: 'हिन्दी अनुवाद',
+        badgeLabel: 'English + हिन्दी',
       };
     }
   }
 
-  // 4. Custom Regional or Global Target Language (e.g. Marathi, Tamil, Spanish, etc.)
+  // 4. Custom Regional or Global Target Language (e.g. Marathi, Telugu, Tamil, German, French, etc.)
   const targetLang = SUPPORTED_LANGUAGES.find((l) => l.code === targetMode);
   if (targetLang) {
-    const sourceCode = hasHindi ? 'hi' : 'en';
-    const translated = await translateText(text, sourceCode, targetLang.code);
+    const translated = await translateText(text, 'autodetect', targetLang.code);
     return {
       primaryText: translated,
-      secondaryText: translated !== text ? text : undefined,
-      badgeLabel: `${targetLang.nativeName} अनुवाद`,
+      badgeLabel: targetLang.nativeName,
     };
   }
 
