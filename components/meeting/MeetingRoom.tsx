@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useStableCallback } from '@/lib/useStableCallback';
 import { useRouter } from 'next/navigation';
 import { Participant, RoomSettings, ChatMessage, ReactionItem, WaitingParticipant, TranscriptItem } from '@/lib/types';
 import { WebRTCManager } from '@/lib/webrtc';
@@ -24,7 +25,7 @@ import {
   saveRoomTranscriptItem,
   fetchRoomTranscripts,
 } from '@/lib/roomService';
-import { isHindiText, formatCaptionForUserPreference } from '@/lib/translation';
+import { formatCaptionForUserPreference } from '@/lib/translation';
 import { useAuth } from '@/lib/authContext';
 import { VideoGrid } from './VideoGrid';
 import { MeetingControls } from './MeetingControls';
@@ -77,7 +78,7 @@ export function MeetingRoom({
   const [remoteScreenStreams, setRemoteScreenStreams] = useState<Map<string, MediaStream>>(new Map());
 
   // Room settings & Realtime data
-  const [roomSettings, setRoomSettings] = useState<RoomSettings>({
+  const [roomSettings, setRoomSettings] = useState<RoomSettings>(() => ({
     roomId,
     hostId: initialParticipant.isHost ? initialParticipant.id : '',
     hostName: initialParticipant.isHost ? initialParticipant.name : '',
@@ -87,7 +88,7 @@ export function MeetingRoom({
     allowChat: true,
     allowUnmute: true,
     createdAt: Date.now(),
-  });
+  }));
 
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -97,6 +98,10 @@ export function MeetingRoom({
 
   // Panels & Modals
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const isChatOpenRef = useRef(isChatOpen);
+  useEffect(() => {
+    isChatOpenRef.current = isChatOpen;
+  }, [isChatOpen]);
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isWhiteboardOpen, setIsWhiteboardOpen] = useState(false);
   const [isSecurityOpen, setIsSecurityOpen] = useState(false);
@@ -239,6 +244,7 @@ export function MeetingRoom({
 
   const rtcManagerRef = useRef<WebRTCManager | null>(null);
   const liveKitManagerRef = useRef<LiveKitRoomManager | null>(null);
+  const initialStreamRef = useRef<MediaStream | null>(initialStream);
   const activeCameraStreamRef = useRef<MediaStream | null>(initialStream || null);
 
   // Initialize Room & Media Engine
@@ -343,7 +349,7 @@ export function MeetingRoom({
             // Whiteboard & data packets
             lkManager.onDataReceived = (payload) => {
               if (payload?.type === 'whiteboard') {
-                setIncomingDrawEvent(payload.event);
+                setIncomingDrawEvent(payload.event ?? null);
               } else if (payload?.type === 'transcript-chunk' && payload.item) {
                 handleAppendTranscriptItemRef.current(payload.item);
               } else if (payload?.type === 'meeting-concluding') {
@@ -386,7 +392,7 @@ export function MeetingRoom({
             const lkLocalStream = await lkManager.publishLocalTracks(
               initialParticipant.audioEnabled,
               initialParticipant.videoEnabled,
-              initialStream
+              initialStreamRef.current
             );
 
             if (lkLocalStream && lkLocalStream.getTracks().length > 0) {
@@ -413,7 +419,7 @@ export function MeetingRoom({
         const manager = new WebRTCManager(roomId, initialParticipant);
         rtcManagerRef.current = manager;
 
-        let meshStream = initialStream;
+        let meshStream: MediaStream | null = initialStreamRef.current;
         if (!meshStream || meshStream.getTracks().every((t) => t.readyState === 'ended')) {
           try {
             meshStream = await navigator.mediaDevices.getUserMedia({
@@ -534,7 +540,7 @@ export function MeetingRoom({
 
     const unsubChat = subscribeToChatMessages(roomId, (allMsgs) => {
       setMessages(allMsgs);
-      if (!isChatOpen && allMsgs.length > 0) {
+      if (!isChatOpenRef.current && allMsgs.length > 0) {
         setUnreadChatCount((c) => c + 1);
       }
     });
@@ -584,6 +590,8 @@ export function MeetingRoom({
       unsubChat();
       unsubReactions();
     };
+    // Intentionally keyed to the room/participant identity only: re-running would tear down and rejoin the call
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomId, initialParticipant.id]);
 
   // Subscribe to waiting room for host and co-host
@@ -595,12 +603,12 @@ export function MeetingRoom({
     return () => unsub();
   }, [roomId, localParticipant.isHost, localParticipant.isCoHost]);
 
-  // Reset unread chat count when chat opens
-  useEffect(() => {
-    if (isChatOpen) {
-      setUnreadChatCount(0);
-    }
-  }, [isChatOpen]);
+  // Reset unread chat count when chat opens (adjusted during render, not in an effect)
+  const [prevChatOpen, setPrevChatOpen] = useState(isChatOpen);
+  if (isChatOpen !== prevChatOpen) {
+    setPrevChatOpen(isChatOpen);
+    if (isChatOpen) setUnreadChatCount(0);
+  }
 
   // Web Speech API & AI Audio Fallback Live Transcription (Brave Browser compatible)
   useEffect(() => {
@@ -610,10 +618,6 @@ export function MeetingRoom({
     service.setOnModeChange((brave) => {
       setIsBraveActive(brave);
     });
-
-    if (localStream) {
-      service.setAudioStream(localStream);
-    }
 
     service.setCallbacks((text, isFinal, translation) => {
       const baseItem: TranscriptItem = {
@@ -668,6 +672,7 @@ export function MeetingRoom({
       service.start();
     }
 
+    const transcript = transcriptRef.current;
     return () => {
       const flushed = service.flushInterim();
       if (flushed) {
@@ -679,7 +684,7 @@ export function MeetingRoom({
           timestamp: Date.now(),
           isFinal: true,
         };
-        transcriptRef.current.push(flushedItem);
+        transcript.push(flushedItem);
       }
       service.destroy();
       transcriptionServiceRef.current = null;
@@ -687,14 +692,9 @@ export function MeetingRoom({
         clearTimeout(captionFadeTimerRef.current);
       }
     };
+    // Recreated only when identity, transport or language changes; mute state is synced by the effect below
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localParticipant.id, localParticipant.name, isLiveKitSFU, captionLanguage]);
-
-  // Synchronize audio stream with transcription service for Brave / VAD audio fallback
-  useEffect(() => {
-    if (transcriptionServiceRef.current && localStream) {
-      transcriptionServiceRef.current.setAudioStream(localStream);
-    }
-  }, [localStream]);
 
   // Synchronize transcription with microphone mute/unmute state
   useEffect(() => {
@@ -731,7 +731,7 @@ export function MeetingRoom({
         }
       } else {
         // WebRTC Mesh mode
-        let activeStream = localStream;
+        const activeStream = localStream;
         const liveAudioTrack = activeStream?.getAudioTracks().find((t) => t.readyState === 'live');
 
         if (nextState) {
@@ -822,7 +822,7 @@ export function MeetingRoom({
         }
       } else {
         // WebRTC Mesh mode
-        let activeStream = localStream;
+        const activeStream = localStream;
         const liveVideoTrack = activeStream?.getVideoTracks().find((t) => t.readyState === 'live');
 
         if (nextState) {
@@ -1021,7 +1021,7 @@ export function MeetingRoom({
       }
 
       // 2. Set up AudioContext to mix all selected sources
-      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
       const audioCtx = new AudioCtx();
       recordingAudioContextRef.current = audioCtx;
       const destination = audioCtx.createMediaStreamDestination();
@@ -1340,7 +1340,7 @@ export function MeetingRoom({
     }
 
     // 2. Fetch all transcripts from Firestore to ensure NO speech was missed from any participant
-    let completeTranscript = [...transcriptRef.current];
+    const completeTranscript = [...transcriptRef.current];
     try {
       const firestoreTranscripts = await fetchRoomTranscripts(roomId);
       if (firestoreTranscripts && firestoreTranscripts.length > 0) {
@@ -1476,6 +1476,46 @@ export function MeetingRoom({
     const s = secs % 60;
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
+
+  // Stable handler identities so memoized children (VideoGrid, ChatPanel, MeetingControls) skip re-renders
+  const allParticipants = useMemo(() => [localParticipant, ...remoteParticipants], [localParticipant, remoteParticipants]);
+  const onToggleScreenShare = useStableCallback(handleToggleScreenShare);
+  const onToggleCoHost = useStableCallback(handleToggleCoHost);
+  const onMuteParticipant = useStableCallback(handleMuteParticipant);
+  const onKickParticipant = useStableCallback(handleKickParticipant);
+  const onSendMessage = useStableCallback(handleSendMessage);
+  const onToggleAudio = useStableCallback(handleToggleAudio);
+  const onToggleVideo = useStableCallback(handleToggleVideo);
+  const onToggleHandRaise = useStableCallback(handleToggleHandRaise);
+  const onToggleRecording = useStableCallback(handleToggleRecording);
+  const onSendReaction = useStableCallback(handleSendReaction);
+  const onCloseChat = useStableCallback(() => setIsChatOpen(false));
+  const onToggleCaptions = useStableCallback(() => setIsCaptionsOn((prev) => !prev));
+  const onChangeCaptionLanguage = useStableCallback((lang: string) => {
+    setCaptionLanguage(lang);
+    captionLanguageRef.current = lang;
+    transcriptionServiceRef.current?.setLanguage(lang);
+    if (latestLiveCaption?.text) {
+      formatCaptionForUserPreference(latestLiveCaption.text, lang)
+        .then(({ primaryText, secondaryText, badgeLabel }) => {
+          if (primaryText) {
+            handleUpdateLiveCaption(latestLiveCaption.senderName, primaryText, secondaryText, badgeLabel);
+          }
+        })
+        .catch(() => {});
+    }
+  });
+  const onToggleParticipantsPanel = useStableCallback(() => {
+    setIsParticipantsOpen(!isParticipantsOpen);
+    setIsChatOpen(false);
+  });
+  const onToggleChatPanel = useStableCallback(() => {
+    setIsChatOpen(!isChatOpen);
+    setIsParticipantsOpen(false);
+  });
+  const onToggleWhiteboard = useStableCallback(() => setIsWhiteboardOpen(!isWhiteboardOpen));
+  const onOpenSecurityModal = useStableCallback(() => setIsSecurityOpen(true));
+  const onLeaveMeeting = useStableCallback(() => setIsLeaveModalOpen(true));
 
   return (
     <div className="fixed inset-0 bg-slate-950 flex flex-col overflow-hidden select-none">
@@ -1720,23 +1760,23 @@ export function MeetingRoom({
           remoteStreams={remoteStreams}
           screenStream={screenStream}
           remoteScreenStreams={remoteScreenStreams}
-          onStopScreenShare={handleToggleScreenShare}
+          onStopScreenShare={onToggleScreenShare}
           isHostViewer={localParticipant.isHost}
           isCoHostViewer={Boolean(localParticipant.isCoHost)}
-          onToggleCoHost={handleToggleCoHost}
-          onMuteParticipant={handleMuteParticipant}
-          onKickParticipant={handleKickParticipant}
+          onToggleCoHost={onToggleCoHost}
+          onMuteParticipant={onMuteParticipant}
+          onKickParticipant={onKickParticipant}
           viewMode={viewMode}
         />
 
         {/* Side Panel: In-Meeting Chat */}
         <ChatPanel
           isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
+          onClose={onCloseChat}
           messages={messages}
-          participants={[localParticipant, ...remoteParticipants]}
+          participants={allParticipants}
           currentUserId={localParticipant.id}
-          onSendMessage={handleSendMessage}
+          onSendMessage={onSendMessage}
           allowChat={roomSettings.allowChat}
           isHost={localParticipant.isHost}
           isCoHost={Boolean(localParticipant.isCoHost)}
@@ -1838,39 +1878,20 @@ export function MeetingRoom({
         isCaptionsOn={isCaptionsOn}
         isBraveMode={isBraveActive}
         captionLanguage={captionLanguage}
-        onToggleCaptions={() => setIsCaptionsOn((prev) => !prev)}
-        onChangeCaptionLanguage={(lang) => {
-          setCaptionLanguage(lang);
-          captionLanguageRef.current = lang;
-          transcriptionServiceRef.current?.setLanguage(lang);
-          if (latestLiveCaption?.text) {
-            formatCaptionForUserPreference(latestLiveCaption.text, lang)
-              .then(({ primaryText, secondaryText, badgeLabel }) => {
-                if (primaryText) {
-                  handleUpdateLiveCaption(latestLiveCaption.senderName, primaryText, secondaryText, badgeLabel);
-                }
-              })
-              .catch(() => {});
-          }
-        }}
-        onToggleAudio={handleToggleAudio}
-        onToggleVideo={handleToggleVideo}
-        onToggleScreenShare={handleToggleScreenShare}
-        onToggleHandRaise={handleToggleHandRaise}
-        onToggleRecording={handleToggleRecording}
-        onToggleParticipantsPanel={() => {
-          setIsParticipantsOpen(!isParticipantsOpen);
-          setIsChatOpen(false);
-        }}
-        onToggleChatPanel={() => {
-          setIsChatOpen(!isChatOpen);
-          setIsParticipantsOpen(false);
-        }}
+        onToggleCaptions={onToggleCaptions}
+        onChangeCaptionLanguage={onChangeCaptionLanguage}
+        onToggleAudio={onToggleAudio}
+        onToggleVideo={onToggleVideo}
+        onToggleScreenShare={onToggleScreenShare}
+        onToggleHandRaise={onToggleHandRaise}
+        onToggleRecording={onToggleRecording}
+        onToggleParticipantsPanel={onToggleParticipantsPanel}
+        onToggleChatPanel={onToggleChatPanel}
         isWhiteboardOpen={isWhiteboardOpen}
-        onToggleWhiteboard={() => setIsWhiteboardOpen(!isWhiteboardOpen)}
-        onOpenSecurityModal={() => setIsSecurityOpen(true)}
-        onSendReaction={handleSendReaction}
-        onLeaveMeeting={() => setIsLeaveModalOpen(true)}
+        onToggleWhiteboard={onToggleWhiteboard}
+        onOpenSecurityModal={onOpenSecurityModal}
+        onSendReaction={onSendReaction}
+        onLeaveMeeting={onLeaveMeeting}
       />
 
       {/* Interactive Modals */}
@@ -1903,7 +1924,6 @@ export function MeetingRoom({
         isOpen={isRecordModalOpen}
         onClose={() => setIsRecordModalOpen(false)}
         onStartRecording={handleStartRecording}
-        isMicAvailable={Boolean(localStream?.getAudioTracks().length)}
       />
 
       {/* Leave / End Sabha Confirmation Modal */}

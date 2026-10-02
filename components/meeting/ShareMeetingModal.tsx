@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
-import { X, Copy, Check, Share2, MessageCircle, Link, Shield, Users } from 'lucide-react';
+import { useState } from 'react';
+import { X, Copy, Check, Share2, MessageCircle, Link, Shield } from 'lucide-react';
 
 interface ShareMeetingModalProps {
   isOpen: boolean;
@@ -53,7 +53,7 @@ export function ShareMeetingModal({
           text: invitationMessage,
           url: cleanMeetingUrl,
         });
-      } catch (err) {
+      } catch {
         // User cancelled share or failed
       }
     } else {

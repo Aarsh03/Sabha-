@@ -1,6 +1,8 @@
 'use client';
 
-import React, { useRef, useEffect, useState } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import Image from 'next/image';
+import type { ErrorLike } from '@/lib/types';
 import { Mic, MicOff, Video, VideoOff, LogIn, ArrowRight, ShieldCheck, Lock, Loader2, AlertCircle } from 'lucide-react';
 import { useAuth } from '@/lib/authContext';
 
@@ -28,24 +30,24 @@ export function GreenRoom({ roomId, onJoin }: GreenRoomProps) {
       } else {
         await signInWithGoogle();
       }
-    } catch (err: any) {
+    } catch (err) {
       console.warn('Google sign-in notice in GreenRoom:', err);
-      if (err?.code === 'auth/popup-blocked') {
+      if ((err as ErrorLike)?.code === 'auth/popup-blocked') {
         setAuthError(
           'Google Sign-In pop-up was blocked by Chrome. Click the pop-up icon in your Chrome address bar to allow pop-ups, or use Full Page Sign-In below.'
         );
-      } else if (err?.code === 'auth/unauthorized-domain') {
+      } else if ((err as ErrorLike)?.code === 'auth/unauthorized-domain') {
         const domain = typeof window !== 'undefined' ? window.location.hostname : 'this domain';
         setAuthError(
           `Domain "${domain}" is not authorized in Firebase Authentication yet. Please add "${domain}" to Firebase Console > Authentication > Settings > Authorized Domains.`
         );
       } else if (
-        err?.code === 'auth/popup-closed-by-user' ||
-        err?.code === 'auth/cancelled-popup-request'
+        (err as ErrorLike)?.code === 'auth/popup-closed-by-user' ||
+        (err as ErrorLike)?.code === 'auth/cancelled-popup-request'
       ) {
         setAuthError(null);
       } else {
-        setAuthError(err?.message || 'Sign-in could not be completed. Please try again.');
+        setAuthError((err as ErrorLike)?.message || 'Sign-in could not be completed. Please try again.');
       }
     } finally {
       setIsSigningIn(false);
@@ -75,7 +77,7 @@ export function GreenRoom({ roomId, onJoin }: GreenRoomProps) {
         }
 
         // Setup audio visualizer
-        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
         if (AudioContextClass) {
           const ctx = new AudioContextClass();
           audioContextRef.current = ctx;
@@ -334,8 +336,11 @@ export function GreenRoom({ roomId, onJoin }: GreenRoomProps) {
 
                 <div className="flex items-center gap-3 pt-1">
                   {user.photoURL ? (
-                    <img
+                    <Image
                       src={user.photoURL}
+                      width={40}
+                      height={40}
+                      unoptimized
                       alt={user.displayName}
                       className="w-10 h-10 rounded-full border border-amber-500/40 object-cover"
                     />

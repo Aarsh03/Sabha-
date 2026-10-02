@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import {
   Mic,
   MicOff,
@@ -27,8 +27,6 @@ interface MeetingControlsProps {
   isCoHost?: boolean;
   audioEnabled: boolean;
   videoEnabled: boolean;
-  isTogglingAudio?: boolean;
-  isTogglingVideo?: boolean;
   screenSharing: boolean;
   isHandRaised: boolean;
   isRecording: boolean;
@@ -54,13 +52,11 @@ interface MeetingControlsProps {
   onLeaveMeeting: () => void;
 }
 
-export function MeetingControls({
+function MeetingControlsComponent({
   isHost,
   isCoHost = false,
   audioEnabled,
   videoEnabled,
-  isTogglingAudio = false,
-  isTogglingVideo = false,
   screenSharing,
   isHandRaised,
   isRecording,
@@ -457,3 +453,5 @@ export function MeetingControls({
     </div>
   );
 }
+
+export const MeetingControls = memo(MeetingControlsComponent);

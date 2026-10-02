@@ -9,7 +9,7 @@
  * 3. 0ms Latency on Cached Common Phrases.
  */
 
-export interface SupportedLanguage {
+interface SupportedLanguage {
   code: string;
   name: string;
   nativeName: string;
@@ -47,7 +47,7 @@ const translationCache = new Map<string, string>();
 /**
  * Checks if a string contains Hindi / Devanagari script characters
  */
-export function isHindiText(text: string): boolean {
+function isHindiText(text: string): boolean {
   if (!text) return false;
   return /[\u0900-\u097F]/.test(text);
 }
@@ -56,7 +56,7 @@ export function isHindiText(text: string): boolean {
  * Core translation helper using free public translation gateway with memory caching.
  * Consumes 0 Gemini API tokens.
  */
-export async function translateText(text: string, fromLang: string, toLang: string): Promise<string> {
+async function translateText(text: string, fromLang: string, toLang: string): Promise<string> {
   const trimmed = text.trim();
   if (!trimmed || fromLang === toLang) return trimmed;
 
@@ -105,23 +105,7 @@ export async function translateText(text: string, fromLang: string, toLang: stri
   return trimmed;
 }
 
-/**
- * Backwards-compatible helper: Translates Hindi text into English.
- */
-export async function translateHindiToEnglish(text: string): Promise<string> {
-  if (!isHindiText(text)) return text;
-  return translateText(text, 'hi', 'en');
-}
-
-/**
- * Backwards-compatible helper: Translates English text into Hindi.
- */
-export async function translateEnglishToHindi(text: string): Promise<string> {
-  if (isHindiText(text)) return text;
-  return translateText(text, 'en', 'hi');
-}
-
-export interface FormattedCaptionResult {
+interface FormattedCaptionResult {
   primaryText: string;
   secondaryText?: string;
   badgeLabel?: string;

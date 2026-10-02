@@ -1,4 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import type { ErrorLike } from './types';
 import {
   getAuth,
   GoogleAuthProvider,
@@ -11,7 +12,7 @@ import {
 } from 'firebase/auth';
 import { getFirestore, Firestore } from 'firebase/firestore';
 
-export interface FirebaseConfigOptions {
+interface FirebaseConfigOptions {
   apiKey: string;
   authDomain: string;
   projectId: string;
@@ -21,7 +22,7 @@ export interface FirebaseConfigOptions {
   measurementId?: string;
 }
 
-export function getActiveFirebaseConfig(): FirebaseConfigOptions | null {
+function getActiveFirebaseConfig(): FirebaseConfigOptions | null {
   // 1. Check process.env first
   const envConfig: FirebaseConfigOptions = {
     apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
@@ -55,20 +56,6 @@ export function getActiveFirebaseConfig(): FirebaseConfigOptions | null {
   return null;
 }
 
-export function saveLocalFirebaseConfig(config: FirebaseConfigOptions) {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('sabha_firebase_config', JSON.stringify(config));
-    window.location.reload();
-  }
-}
-
-export function clearLocalFirebaseConfig() {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('sabha_firebase_config');
-    window.location.reload();
-  }
-}
-
 import { initializeFirestore } from 'firebase/firestore';
 
 let app: FirebaseApp | null = null;
@@ -100,7 +87,7 @@ if (currentConfig) {
   }
 }
 
-export { app, auth, db, googleProvider };
+export { auth, db };
 
 export const isFirebaseConfigured = (): boolean => {
   return app !== null && db !== null;
@@ -112,17 +99,17 @@ export async function loginWithGoogle() {
   }
   try {
     return await signInWithPopup(auth, googleProvider);
-  } catch (err: any) {
-    console.warn('Popup sign-in notice:', err?.code || err);
+  } catch (err) {
+    console.warn('Popup sign-in notice:', (err as ErrorLike)?.code || err);
     // If the user closed the popup or cancelled, do not force a redirect
     if (
-      err?.code === 'auth/popup-closed-by-user' ||
-      err?.code === 'auth/cancelled-popup-request'
+      (err as ErrorLike)?.code === 'auth/popup-closed-by-user' ||
+      (err as ErrorLike)?.code === 'auth/cancelled-popup-request'
     ) {
       return null;
     }
     // If popup was blocked by browser, attempt redirect fallback
-    if (err?.code === 'auth/popup-blocked') {
+    if ((err as ErrorLike)?.code === 'auth/popup-blocked') {
       return await signInWithRedirect(auth, googleProvider);
     }
     throw err;

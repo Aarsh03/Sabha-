@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { PhoneOff, LogOut, Users, X, AlertTriangle } from 'lucide-react';
 
 interface LeaveMeetingModalProps {

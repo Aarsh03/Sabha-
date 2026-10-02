@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import type { ErrorLike } from '@/lib/types';
 import { GoogleGenAI } from '@google/genai';
 import nodemailer from 'nodemailer';
 import { db, isFirebaseConfigured } from '@/lib/firebase';
@@ -91,7 +92,7 @@ export async function POST(req: NextRequest) {
       try {
         const snap = await getDocs(collection(db, `rooms/${roomId}/participants`));
         snap.forEach((d) => {
-          const data = d.data() as any;
+          const data = d.data() as { email?: string; isHost?: boolean; isCoHost?: boolean };
           if (data && data.email && typeof data.email === 'string' && data.email.includes('@')) {
             const cleanEmail = data.email.trim().toLowerCase();
             if (data.isHost || data.isCoHost) {
@@ -222,14 +223,14 @@ Ensure clarity, professional tone, and zero fluff.`;
               contents: prompt,
             });
             if (result && result.text) break;
-          } catch (mErr: any) {
-            console.warn(`Model ${model} failed, trying next:`, mErr?.message || mErr);
+          } catch (mErr) {
+            console.warn(`Model ${model} failed, trying next:`, (mErr as ErrorLike)?.message || mErr);
           }
         }
 
         aiSummaryMarkdown = result?.text || '';
-      } catch (geminiError: any) {
-        console.error('Gemini summarization failed:', geminiError?.message || geminiError);
+      } catch (geminiError) {
+        console.error('Gemini summarization failed:', (geminiError as ErrorLike)?.message || geminiError);
       }
     }
 
@@ -405,10 +406,10 @@ ${
       totalHostRecipients: hostEmails.length,
       totalAttendeeRecipients: attendeeEmails.length,
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Error in summarize-and-email route:', error);
     return NextResponse.json(
-      { error: error?.message || 'Internal server error processing meeting summary' },
+      { error: (error as ErrorLike)?.message || 'Internal server error processing meeting summary' },
       { status: 500 }
     );
   }

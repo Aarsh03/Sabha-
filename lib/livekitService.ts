@@ -7,7 +7,7 @@ import {
   Track,
   DisconnectReason,
 } from 'livekit-client';
-import { Participant } from './types';
+import { Participant, DataMessage } from './types';
 
 export class LiveKitRoomManager {
   private room: Room;
@@ -22,7 +22,7 @@ export class LiveKitRoomManager {
   public onLocalScreenShareStopped: () => void = () => {};
   public onParticipantsChanged: (participants: Participant[]) => void = () => {};
   public onActiveSpeakersChanged: (speakerIds: string[]) => void = () => {};
-  public onDataReceived: (payload: any, peerId: string) => void = () => {};
+  public onDataReceived: (payload: DataMessage, peerId: string) => void = () => {};
   public onKicked: (reason?: string) => void = () => {};
   public onLocalStreamChanged: (stream: MediaStream) => void = () => {};
   public onRoleChanged: (isCoHost: boolean) => void = () => {};
@@ -409,7 +409,7 @@ export class LiveKitRoomManager {
   }
 
 
-  public async sendData(payload: any): Promise<void> {
+  public async sendData(payload: DataMessage): Promise<void> {
     try {
       const str = JSON.stringify(payload);
       const encoder = new TextEncoder();

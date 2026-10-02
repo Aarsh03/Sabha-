@@ -1,17 +1,10 @@
 'use client';
 
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { useRef, useState, useEffect, useCallback } from 'react';
 import { X, Pen, Eraser, Trash2, Download, Users } from 'lucide-react';
 
-export interface WhiteboardDrawEvent {
-  type: 'draw' | 'clear';
-  prevX?: number;
-  prevY?: number;
-  currX?: number;
-  currY?: number;
-  color?: string;
-  lineWidth?: number;
-}
+import type { WhiteboardDrawEvent } from '@/lib/types';
+export type { WhiteboardDrawEvent };
 
 interface WhiteboardModalProps {
   isOpen: boolean;

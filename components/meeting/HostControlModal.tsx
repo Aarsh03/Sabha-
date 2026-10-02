@@ -1,6 +1,5 @@
 'use client';
 
-import React from 'react';
 import { RoomSettings } from '@/lib/types';
 import { X, Shield, Lock, Unlock, Monitor, MessageSquare, Mic, AlertTriangle, Video, Users } from 'lucide-react';
 

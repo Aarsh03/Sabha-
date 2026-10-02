@@ -91,7 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return null;
   });
 
-  const [loading, setLoading] = useState(true);
+  // Only start in a loading state when Firebase auth will actually resolve; otherwise nothing to wait for
+  const [loading, setLoading] = useState(() => isFirebaseConfigured() && Boolean(auth));
   const [isFirebaseReady] = useState(() => isFirebaseConfigured());
 
   useEffect(() => {
@@ -163,8 +164,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isMounted = false;
         unsub();
       };
-    } else {
-      setLoading(false);
     }
   }, []);
 
@@ -186,7 +185,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         logUserIpAndSession(cred.user);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('Google Sign-In failed:', err);
       throw err;
     } finally {
@@ -198,7 +197,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       await loginWithGoogleRedirect();
-    } catch (err: any) {
+    } catch (err) {
       console.error('Google Sign-In Redirect failed:', err);
       throw err;
     }

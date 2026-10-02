@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { Participant } from '@/lib/types';
 import { VideoTile } from './VideoTile';
 import { Maximize2, Monitor } from 'lucide-react';
@@ -162,7 +162,7 @@ function ScreenPresentationStage({
   );
 }
 
-export function VideoGrid({
+function VideoGridComponent({
   localParticipant,
   localStream,
   remoteParticipants,
@@ -182,9 +182,9 @@ export function VideoGrid({
   const allParticipants = [localParticipant, ...remoteParticipants];
   const totalCount = allParticipants.length;
 
-  const togglePin = (id: string) => {
+  const togglePin = useCallback((id: string) => {
     setPinnedId((current) => (current === id ? null : id));
-  };
+  }, []);
 
   const getStreamForParticipant = (id: string): MediaStream | null => {
     if (id === localParticipant.id) return localStream;
@@ -476,3 +476,5 @@ export function VideoGrid({
     </div>
   );
 }
+
+export const VideoGrid = memo(VideoGridComponent);
