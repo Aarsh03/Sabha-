@@ -96,6 +96,7 @@
 - [x] **TASK-903:** Implement `flushInterim()` speech buffer mechanism in `LiveTranscriptionService` and `MeetingRoom.tsx` to prevent losing concluding words spoken right before call end or muting.
 - [x] **TASK-904:** Fix Gemini 404 model deprecation on Vercel by migrating primary summarization to Google's official production models (`gemini-3.5-flash` and `gemini-3.8-flash`).
 - [x] **TASK-905:** Resolve attendee email delivery by propagating participant emails through LiveKit token metadata, preserving them in `syncParticipants()`, querying Firestore roster `/rooms/{roomId}/participants` on the server, and delivering individual emails.
+- [x] **TASK-906:** Implement Brave Browser AI audio fallback engine in `lib/transcriptionService.ts` via Web Audio VAD and serverless Gemini endpoint (`/api/transcribe-audio`) to bypass Brave's block on Google Web Speech API.
 
 ---
 

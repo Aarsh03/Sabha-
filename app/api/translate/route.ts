@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
         const ai = new GoogleGenAI({ apiKey: geminiKey });
         const prompt = `You are a real-time conference translator. Translate this Hindi spoken statement directly to natural English. Output ONLY the English translation without preamble or quotes:\n\n${trimmed}`;
 
-        const modelsToTry = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+        const modelsToTry = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
         for (const model of modelsToTry) {
           try {
             const response = await ai.models.generateContent({

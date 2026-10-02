@@ -121,6 +121,7 @@ export function MeetingRoom({
   const [transcript, setTranscript] = useState<TranscriptItem[]>([]);
   const transcriptRef = useRef<TranscriptItem[]>([]);
   const [isCaptionsOn, setIsCaptionsOn] = useState<boolean>(true);
+  const [isBraveActive, setIsBraveActive] = useState<boolean>(false);
   const [captionLanguage, setCaptionLanguage] = useState<string>('hi-IN');
   const [latestLiveCaption, setLatestLiveCaption] = useState<{
     senderName: string;
@@ -512,12 +513,20 @@ export function MeetingRoom({
     }
   }, [isChatOpen]);
 
-  // Web Speech API Live Transcription
+  // Web Speech API & AI Audio Fallback Live Transcription (Brave Browser compatible)
   useEffect(() => {
     const service = new LiveTranscriptionService(captionLanguage);
     transcriptionServiceRef.current = service;
 
-    service.setCallbacks((text, isFinal) => {
+    service.setOnModeChange((brave) => {
+      setIsBraveActive(brave);
+    });
+
+    if (localStream) {
+      service.setAudioStream(localStream);
+    }
+
+    service.setCallbacks((text, isFinal, translation) => {
       const baseItem: TranscriptItem = {
         id: `${localParticipant.id}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         senderId: localParticipant.id,
@@ -527,6 +536,32 @@ export function MeetingRoom({
         isFinal,
       };
 
+      // 1. If translation is already provided by Gemini AI Audio Transcriber
+      if (translation && translation !== text) {
+        handleUpdateLiveCaption(localParticipant.name || 'You', text, translation);
+
+        if (isFinal) {
+          const itemWithTrans: TranscriptItem = {
+            ...baseItem,
+            translation,
+          };
+          transcriptRef.current.push(itemWithTrans);
+          setTranscript((prev) => [...prev, itemWithTrans]);
+
+          // Broadcast to peers via active media engine
+          if (isLiveKitSFU && liveKitManagerRef.current) {
+            liveKitManagerRef.current.sendData({
+              type: 'transcript-chunk',
+              item: itemWithTrans,
+            });
+          } else if (rtcManagerRef.current) {
+            rtcManagerRef.current.sendTranscriptItem(itemWithTrans);
+          }
+        }
+        return;
+      }
+
+      // 2. Client-side Hindi translation if recognized text has Devanagari characters
       if (isHindiText(text)) {
         translateHindiToEnglish(text).then((trans) => {
           handleUpdateLiveCaption(localParticipant.name || 'You', text, trans);
@@ -594,6 +629,13 @@ export function MeetingRoom({
       }
     };
   }, [localParticipant.id, localParticipant.name, isLiveKitSFU, captionLanguage]);
+
+  // Synchronize audio stream with transcription service for Brave / VAD audio fallback
+  useEffect(() => {
+    if (transcriptionServiceRef.current && localStream) {
+      transcriptionServiceRef.current.setAudioStream(localStream);
+    }
+  }, [localStream]);
 
   // Synchronize transcription with microphone mute/unmute state
   useEffect(() => {
@@ -1606,6 +1648,7 @@ export function MeetingRoom({
         waitingCount={waitingList.length}
         unreadChatCount={unreadChatCount}
         isCaptionsOn={isCaptionsOn}
+        isBraveMode={isBraveActive}
         captionLanguage={captionLanguage}
         onToggleCaptions={() => setIsCaptionsOn((prev) => !prev)}
         onChangeCaptionLanguage={(lang) => {

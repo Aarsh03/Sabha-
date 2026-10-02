@@ -224,4 +224,6 @@ flowchart TD
 2. **Real-Time Hindi-to-English Translation:** Analyzes incoming speech for Devanagari Unicode characters and translates in real-time, displaying both the spoken Hindi and its English translation.
 3. **Zero-Loss Concluding Audio (`flushInterim`):** Web Speech API only finalizes interim speech after extended pauses; `flushInterim()` flushes pending speech immediately when the host ends the call or a user mutes, ensuring closing words are never dropped.
 4. **Resilient Attendee Roster Synchronization:** Queries Firestore `/rooms/{roomId}/participants` to guarantee every attendee who joined receives the meeting notes individually, preserving attendee privacy.
+5. **Brave Browser & Privacy-Shield AI Speech Fallback:** Automatically detects Brave Browser (which blocks Google Web Speech API network calls) and transparently redirects microphone speech through an `AudioContext` VAD voice detector, streaming audio slices to `/api/transcribe-audio` for Gemini transcription with zero dropped words.
+
 

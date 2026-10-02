@@ -32,6 +32,7 @@ interface MeetingControlsProps {
   waitingCount?: number;
   unreadChatCount: number;
   isCaptionsOn?: boolean;
+  isBraveMode?: boolean;
   captionLanguage?: string;
   onToggleCaptions?: () => void;
   onChangeCaptionLanguage?: (lang: string) => void;
@@ -63,6 +64,7 @@ export function MeetingControls({
   waitingCount = 0,
   unreadChatCount,
   isCaptionsOn = true,
+  isBraveMode = false,
   captionLanguage = 'hi-IN',
   onToggleCaptions,
   onChangeCaptionLanguage,
@@ -241,13 +243,23 @@ export function MeetingControls({
               onClick={onToggleCaptions}
               className={`flex flex-col items-center justify-center w-11 h-11 sm:w-14 sm:h-14 rounded-xl transition cursor-pointer ${
                 isCaptionsOn
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+                  ? isBraveMode
+                    ? 'bg-orange-500/20 text-orange-300 border border-orange-500/50 shadow-sm'
+                    : 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
                   : 'text-slate-400 hover:bg-slate-800/80 hover:text-slate-200'
               }`}
-              title={isCaptionsOn ? 'Hide Live Captions' : 'Show Live Captions'}
+              title={
+                isCaptionsOn
+                  ? isBraveMode
+                    ? 'Brave Shields AI Speech Transcription Active (Click to toggle)'
+                    : 'Hide Live Captions'
+                  : 'Show Live Captions'
+              }
             >
-              <Captions className="w-4 h-4 sm:w-5 sm:h-5 sm:mb-1" />
-              <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">{isCaptionsOn ? 'CC On' : 'CC Off'}</span>
+              <Captions className={`w-4 h-4 sm:w-5 sm:h-5 sm:mb-1 ${isBraveMode && isCaptionsOn ? 'text-orange-400' : ''}`} />
+              <span className="text-[9px] sm:text-[10px] font-medium hidden xs:inline">
+                {isCaptionsOn ? (isBraveMode ? '🦁 AI CC' : 'CC On') : 'CC Off'}
+              </span>
             </button>
 
             {isCaptionsOn && onChangeCaptionLanguage && (

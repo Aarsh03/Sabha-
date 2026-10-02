@@ -208,7 +208,7 @@ Please produce a concise, professional, beautifully formatted summary in Markdow
 Ensure clarity, professional tone, and zero fluff.`;
 
         let result;
-        const modelsToTry = ['gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
+        const modelsToTry = ['gemini-3-flash-preview', 'gemini-3.5-flash', 'gemini-3.8-flash', 'gemini-flash-latest'];
         for (const model of modelsToTry) {
           try {
             result = await ai.models.generateContent({

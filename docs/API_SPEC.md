@@ -303,7 +303,7 @@ Generates an executive AI summary using Google Gemini (`gemini-3.5-flash` with f
 
 ### `POST /api/translate`
 
-Translates spoken Hindi speech segments to English using Gemini (`gemini-3.5-flash` / `gemini-3.8-flash`) with fast public gateway fallback.
+Translates spoken Hindi speech segments to English using Gemini (`gemini-3-flash-preview` / `gemini-3.5-flash` / `gemini-3.8-flash`) with fast public gateway fallback.
 
 #### Request Body
 ```json
@@ -320,4 +320,30 @@ Translates spoken Hindi speech segments to English using Gemini (`gemini-3.5-fla
   "translation": "Hello, how are you all?"
 }
 ```
+
+---
+
+## 7. AI Audio Speech Transcription API (Brave Browser & Fallback)
+
+### `POST /api/transcribe-audio`
+
+Transcribes microphone audio segments for browsers where Google Web Speech API is blocked or disabled (such as Brave Browser due to privacy shields) using Google Gemini multimodal audio understanding.
+
+#### Request Body
+```json
+{
+  "audio": "<base64_encoded_audio_data>",
+  "mimeType": "audio/webm",
+  "language": "hi-IN"
+}
+```
+
+#### Response (`200 OK`)
+```json
+{
+  "text": "नमस्ते, क्या आप मुझे सुन सकते हैं?",
+  "translation": "Hello, can you hear me?"
+}
+```
+
 

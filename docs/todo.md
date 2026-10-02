@@ -27,6 +27,7 @@
 - [x] **Multilingual Hindi Speech & Real-Time English Translation:** Support `hi-IN`, `en-IN`, and `en-US` spoken language switcher directly on CC control; automatic translation of Hindi speech to English in real-time captions and verbatim transcripts (`/api/translate` powered by Gemini 3.5 Flash).
 - [x] **Zero-Loss Meeting Conclusion Audio:** Implemented `flushInterim()` buffer flushing on meeting end and mic toggle, ensuring closing words of calls are never dropped from transcripts.
 - [x] **AI Meeting Summarizer & Email Dispatch:** Google Gemini (`gemini-3.5-flash` / `gemini-3.8-flash` cascade) automatic structured executive summary generation and Zoho Mail SMTP (`smtp.zoho.in:465`) dispatch: full `.txt` verbatim transcript + summary to Hosts/Co-hosts, and executive summary notes delivered individually to all attendees with Firestore roster synchronization.
+- [x] **Brave Browser AI Audio Transcription Fallback:** Automatic detection of Brave Browser (`isBraveBrowser`), Web Audio VAD voice detection, and serverless Gemini speech transcription (`/api/transcribe-audio`) overcoming Brave's intentional block on Google Web Speech API, with active UI indicators on CC controls.
 
 ---
 

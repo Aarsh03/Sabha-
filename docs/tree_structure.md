@@ -65,6 +65,7 @@ Next.js App Router directory. Handles routing, pages, and serverless API endpoin
   - `/auth/record-login/route.ts` - Serverless endpoint to record user login IPs and details to Firestore for auditing.
   - `/livekit-token/route.ts` - Generates secure JWT tokens for LiveKit SFU access.
   - `/meeting/summarize-and-email/route.ts` - Uses Google Gemini and Zoho Mail SMTP to generate AI meeting notes and dispatch summaries and verbatim transcripts.
+  - `/transcribe-audio/route.ts` - Real-time AI speech-to-text audio chunk transcriber powered by Gemini for Brave browser and Web Speech fallback.
   - `/translate/route.ts` - Real-time Hindi-to-English translation endpoint powered by Gemini Flash with fast public gateway fallback.
   - `/room/leave/route.ts` - Handles server-side room teardown and broadcast termination signals when a user leaves.
 - **/room**

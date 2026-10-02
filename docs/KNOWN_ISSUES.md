@@ -41,6 +41,10 @@ The following files and dependencies are tracked:
 - **Truncated Concluding Meeting Speech:**
   - **Location:** `lib/transcriptionService.ts`, `components/meeting/MeetingRoom.tsx`
   - **Status:** *(Resolved: Added `flushInterim()` buffer mechanism ensuring words spoken right before call end are converted to final transcript items).*
+- **Brave Browser Web Speech API Network Error & Missing Transcripts:**
+  - **Location:** `lib/transcriptionService.ts`, `app/api/transcribe-audio/route.ts`
+  - **Details:** Brave Browser intentionally blocks Google's proprietary Web Speech API server endpoints, causing `recognition.onerror({ error: 'network' })` and dropping all speech from Brave users.
+  - **Status:** *(Resolved: Built dual-engine transcription with `isBraveBrowser()` detection and automatic fallback to Web Audio VAD voice detection and serverless Gemini audio chunk transcription via `/api/transcribe-audio`).*
 
 ---
 
