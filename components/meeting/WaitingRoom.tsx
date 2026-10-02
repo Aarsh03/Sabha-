@@ -175,7 +175,7 @@ export function WaitingRoom({
       <div className="max-w-4xl w-full grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
         {/* Left Column: Camera Preview Tile */}
         <div className="lg:col-span-7 flex flex-col items-center">
-          <div className="relative w-full aspect-video bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group">
+          <div className="relative w-full max-w-lg aspect-[4/3] bg-slate-900 rounded-3xl overflow-hidden border border-slate-800 shadow-2xl flex items-center justify-center group mx-auto">
             {/* Camera Video Stream */}
             <video
               ref={videoRef}

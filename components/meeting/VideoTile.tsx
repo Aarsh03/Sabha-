@@ -115,7 +115,11 @@ export function VideoTile({
 
   return (
     <div
-      className={`relative w-full aspect-video max-h-full max-w-full bg-slate-900/90 rounded-2xl overflow-hidden border transition-all duration-300 flex items-center justify-center group shadow-xl mx-auto my-auto ${
+      style={{
+        width: 'min(100%, calc(100cqh * 4 / 3))',
+        aspectRatio: '4 / 3',
+      }}
+      className={`relative aspect-[4/3] max-h-full max-w-full bg-slate-900/90 rounded-2xl overflow-hidden border transition-all duration-300 flex items-center justify-center group shadow-xl mx-auto my-auto ${
         isSpeaking
           ? 'border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-500/10'
           : 'border-slate-800 hover:border-slate-700'
